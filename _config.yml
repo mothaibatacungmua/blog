@@ -1,7 +1,32 @@
-title: Vọc vạch
-description: Chia sẻ kiến thức viết strategy trong forex bằng học máy
-show_downloads: true
-google_analytics:
-theme: jekyll-theme-cayman
+title: VocVach-Blog
+description: "---> FxQ4nt <----"
+author:
+  name: "FxQ4nt"
+  email: "ducta.qc@gmail.com"
+  url: "https://vocvach.xyz"
 
-theme: jekyll-theme-cayman
+baseurl: /
+
+source: .
+destination: ./_site
+permalink: /:title
+paginate: 3
+paginate_path: /page/:num/
+
+defaults:
+  -
+    scope:
+      path: ""
+      type: "posts"
+    values:
+      layout: "post"
+
+future: true
+plugins:
+  - jekyll-seo-tag
+  - jekyll-paginate
+  - jekyll-sitemap
+
+# Custom variables
+owner : "FxQ4nt"
+year : "2020"
