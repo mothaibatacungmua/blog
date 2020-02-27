@@ -1,6 +1,7 @@
 import os
 import mmap
-from fxq4nt.logger import create_logger
+import logging
+from fxqu4nt.logger import create_logger
 
 MAX_BYTES_LINE = 256
 
@@ -15,12 +16,13 @@ class CsvTickFile(object):
         fobj.close()
 
     def head(self, n):
+        n = int(n)
         if n > 1000:
             self.logger.warning("head() displays only first 1000 lines")
             n = 1000
         max_bytes = MAX_BYTES_LINE * n
         fobj = open(self.fpath, 'rb')
-        mm = mmap.mmap(fobj.fileno(), max_bytes)
+        mm = mmap.mmap(fobj.fileno(), max_bytes, access=mmap.ACCESS_READ)
         buf = []
         offset = 0
         while len(buf) < n:
@@ -33,19 +35,22 @@ class CsvTickFile(object):
         return "\n".join(buf)
 
     def tail(self, n):
+        n = int(n)
         if n > 1000:
             self.logger.warning("tail() displays only last 1000 lines")
             n = 1000
         max_bytes = MAX_BYTES_LINE * n
         fobj = open(self.fpath, 'rb')
-        mm = mmap.mmap(fobj.fileno(), max_bytes, offset=self.fsize-max_bytes)
+        start = (self.fsize - max_bytes) - (self.fsize - max_bytes) % mmap.ALLOCATIONGRANULARITY
+        mm = mmap.mmap(fobj.fileno(), max_bytes, offset=start, access=mmap.ACCESS_READ)
         buf = []
-        start = self.fsize-max_bytes
-        end = self.fsize
+        start = 0
+        end = max_bytes
         while len(buf) < n:
             found = mm.rfind(b'\n', start, end)
-            line = mm[found+1:end].decode("utf-8")
+            line = mm[found+1:end+1].decode("utf-8")
             buf.insert(0, line)
+            end = found - 1
 
         mm.close()
         fobj.close()
