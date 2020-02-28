@@ -1,0 +1,1 @@
+# Time bar class
