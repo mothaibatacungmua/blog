@@ -4,9 +4,10 @@ from fxqu4nt.utils.csv_tick_file import CsvTickFile
 @click.command()
 @click.option('--file', help="Input .csv file")
 @click.option('--mode', default='year', help='Mode to split')
-def csv_split(file, mode):
-    click.echo(file + " " + mode)
-
+@click.option('--out_dir', default='.', help="Output directory to save")
+def csv_split(file, mode, out_dir):
+    csv_tick = CsvTickFile(file)
+    csv_tick.split(mode, out_dir=out_dir)
 
 @click.command()
 @click.option('--file', help="Input .csv file")
