@@ -81,14 +81,16 @@ class CsvTickFile(object):
             line = b''
             last = buf.rfind(b'\n', 0, len(buf))
             start = start + last + 1
-            fobj.seek(start)
-
+            if fobj.tell() < self.fsize:
+                fobj.seek(start)
             # extract line from buf
             for c in buf[:last+1]:
                 c = bytes([c])
                 if c != b'\n': line += c
                 else:
-                    line = line.decode("utf-8")
+                    line = line.decode("utf-8").strip()
+                    if len(line) == 0:
+                        continue
                     if count == 0:
                         header = line
                     else:
@@ -101,6 +103,7 @@ class CsvTickFile(object):
                             year_f = open(os.path.join(out_dir, "%s.csv" % str(dt.year)), "w")
                             year_f.write(header)
                             current_year = dt.year
+                            year_lines.append(line)
                             self.logger.info("split(): Splitting tick data for %d" % current_year)
                         else:
                             year_lines.append(line)
@@ -116,6 +119,7 @@ class CsvTickFile(object):
                 # flush year_lines buffer
                 year_f.write("\n" + "\n".join(year_lines))
                 year_f.close()
+                break
         end_time = time.time()
         self.logger.info("split(): Splitting process token %0.4f seconds" % (end_time - start_time))
 
@@ -126,8 +130,3 @@ class CsvTickFile(object):
         if mode == "year": return self._split_by_year(out_dir)
         if mode == "month": return self._split_by_month(out_dir)
         self.logger.error("split() doesn't support mode `%s`" % mode)
-
-
-if __name__ == "__main__":
-    csv_tick = CsvTickFile("F:\\repos\\blog\_research\data\\EURUSD\\2020.2.25EURUSD-TICK-NoSession.csv")
-    csv_tick.split("year", out_dir="F:\\repos\\blog\_research\data\\EURUSD\\year")
