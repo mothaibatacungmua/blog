@@ -51,7 +51,7 @@ class MainWidget(QWidget):
 
         self.tabs.addTab(self.marketTab, "Market")
         self.tabs.addTab(self.databaseTab, "Database")
-
+        self.tabs.currentChanged.connect(self.onTabChanged)
         self.layout.addWidget(self.tabs)
 
         self.setLayout(self.layout)
@@ -91,3 +91,7 @@ class MainWidget(QWidget):
         self.logger.info("Close Kdb+ connection...")
         kdb = get_db()
         kdb.close()
+
+    def onTabChanged(self, idx):
+        if idx == 1:
+            self.databaseTab.refresh()

@@ -49,8 +49,9 @@ class DatabaseTabWidget(QWidget):
         testConnectBnt.clicked.connect(self.testConnectBntOnClick)
         bntLayout.addWidget(testConnectBnt)
 
-        defaultBnt = QPushButton("Default")
-        bntLayout.addWidget(defaultBnt)
+        self.defaultBnt = QPushButton("Default")
+        self.defaultBnt.clicked.connect(self.defaultBntOnClick)
+        bntLayout.addWidget(self.defaultBnt)
 
         self.layout.addLayout(settingLayout)
         self.layout.addLayout(bntLayout)
@@ -105,3 +106,21 @@ class DatabaseTabWidget(QWidget):
 
     def onTextChanged(self):
         self.bntSave.setEnabled(True)
+
+    def defaultBntOnClick(self):
+        self.cnf = {
+            "host": "localhost",
+            "port": "5042",
+            "storage": ""
+        }
+        self.hostLineEdit.setText(self.cnf["host"])
+        self.portLineEdit.setText(self.cnf["port"])
+        self.storageLineEdit.setText(self.cnf["storage"])
+
+    def refresh(self):
+        self.cnf = get_mcnf()
+        self.hostLineEdit.setText(self.cnf["host"])
+        self.portLineEdit.setText(self.cnf["port"])
+        self.storageLineEdit.setText(self.cnf["storage"])
+
+        self.bntSave.setEnabled(False)
