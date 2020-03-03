@@ -4,7 +4,6 @@ from PyQt5.QtWidgets import QMainWindow, QApplication
 from fxqu4nt.ui.widget import MainWidget
 from fxqu4nt.settings import PACKAGE_NAME, VERSION
 
-
 # https://github.com/constverum/Quantdom/blob/master/quantdom/app.py
 
 class MainWindow(QMainWindow):
