@@ -1,6 +1,0 @@
-symbols:
-  - EURUSD
-kdb:
-  host: localhost
-  port: 5042
-  storage: D:\kdb\data

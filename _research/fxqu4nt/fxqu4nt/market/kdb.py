@@ -14,6 +14,16 @@ class QuotesDB(object):
         else:
             self.logger.error("Connect to kdb+ server fail!")
 
+    def test(self):
+        try:
+            data = self.q('`int$ til 10')
+            if data == list(range(10)):
+                return True
+            return False
+        except Exception as e:
+            self.logger.error("Error:%s" % str(e))
+        return False
+
     def close(self):
         self.q.close()
 
@@ -35,7 +45,11 @@ class QuotesDB(object):
         pass
 
 
-if __name__ == "__main__":
-    quotes_db = QuotesDB()
-    quotes_db.get_symbols()
-    quotes_db.close()
+gquotedb = None
+
+
+def get_db(host, port):
+    global gquotedb
+    if gquotedb is None:
+        gquotedb = QuotesDB(host=host, port=port)
+    return gquotedb

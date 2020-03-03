@@ -1,10 +1,15 @@
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 
+from fxqu4nt.logger import create_logger
+from fxqu4nt.market.kdb import get_db
+from fxqu4nt.ui.database_tab import DatabaseTabWidget
+
 
 class SymbolSettingDialog(QDialog):
     def __init__(self):
         super().__init__()
+        self.logger = create_logger(self.__class__.__name__, "info")
         self.setModal(True)
         self.setWindowTitle("Add Symbol")
         self.createLayout()
@@ -42,7 +47,7 @@ class MainWidget(QWidget):
         self.layout = QVBoxLayout(self)
         self.tabs = QTabWidget()
         self.marketTab = self.marketTabUI()
-        self.databaseTab = self.databaseTabUI()
+        self.databaseTab = DatabaseTabWidget()
 
         self.tabs.addTab(self.marketTab, "Market")
         self.tabs.addTab(self.databaseTab, "Database")
@@ -78,28 +83,11 @@ class MainWidget(QWidget):
 
         return tab
 
-    def databaseTabUI(self):
-        tab = QWidget()
-        tab.layout = QVBoxLayout()
-
-        settingLayout = QFormLayout()
-        settingLayout.addRow(QLabel("Host"), QLineEdit("localhost"))
-        settingLayout.addRow(QLabel("Port"), QLineEdit("5042"))
-
-        bntLayout = QHBoxLayout()
-        saveBnt = QPushButton("Save")
-        bntLayout.addWidget(saveBnt)
-        testConnectBnt = QPushButton("Test Connection")
-        bntLayout.addWidget(testConnectBnt)
-        defaultBnt = QPushButton("Default")
-        bntLayout.addWidget(defaultBnt)
-
-        tab.layout.addLayout(settingLayout)
-        tab.layout.addLayout(bntLayout)
-
-        tab.setLayout(tab.layout)
-        return tab
-
     def openAddSymbolDialog(self):
         symbolDialog = SymbolSettingDialog()
         symbolDialog.exec_()
+
+    def closeEvent(self, event):
+        self.logger.info("Close Kdb+ connection...")
+        kdb = get_db()
+        kdb.close()

@@ -6,7 +6,8 @@ setup(
     packages=find_packages(),
     install_requires=[
         'click',
-        'qpython'
+        'qpython',
+        'PyQt5'
     ],
     entry_points='''
         [console_scripts]
