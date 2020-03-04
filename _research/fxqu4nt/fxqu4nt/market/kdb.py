@@ -1,6 +1,7 @@
 import time
 from qpython import qconnection
 from fxqu4nt.logger import create_logger
+from fxqu4nt.settings import get_mcnf
 
 
 class QuotesDB(object):
@@ -35,8 +36,11 @@ class QuotesDB(object):
         pass
 
     def get_symbols(self):
-        result = self.q('symbols')
-        print(result)
+        result = self.q('SymMeta', pandas=True)
+        result.index = result.index.map(lambda x: x.decode("utf-8"))
+        for col in ["path"]:
+            result[col] = result[col].apply(lambda x: x.decode("utf-8"))
+        return result
 
     def update_symbol(self, symbol, ticks):
         pass
@@ -48,8 +52,12 @@ class QuotesDB(object):
 gquotedb = None
 
 
-def get_db(host, port):
+def get_db(host=None, port=None):
     global gquotedb
     if gquotedb is None:
+        if host is None or port is None:
+            cnf = get_mcnf()
+            host = cnf["host"]
+            port = int(cnf["port"])
         gquotedb = QuotesDB(host=host, port=port)
     return gquotedb
