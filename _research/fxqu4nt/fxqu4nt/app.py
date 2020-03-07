@@ -3,6 +3,8 @@ import sys
 from PyQt5.QtWidgets import QMainWindow, QApplication
 from fxqu4nt.ui.widget import MainWidget
 from fxqu4nt.settings import PACKAGE_NAME, VERSION
+from fxqu4nt.market.kdb import get_db
+from fxqu4nt.logger import create_logger
 
 # https://github.com/constverum/Quantdom/blob/master/quantdom/app.py
 
@@ -17,12 +19,21 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(PACKAGE_NAME + " " + VERSION)
         self.resize(*self.size)
         self._move_to_center()
+        self.logger = create_logger(self.__class__.__name__, "info")
+
+        self.kdb = get_db()
+        self.kdb.restore_all()
 
     def _move_to_center(self):
         desktop = QApplication.desktop()
         x = (desktop.width() - self.width())/2
         y = (desktop.height() - self.height())/2
         self.move(int(x), int(y))
+
+    def closeEvent(self, event):
+        self.kdb.save_all()
+        self.logger.info("Close Kdb+ connection...")
+        self.kdb.close()
 
 
 def main():

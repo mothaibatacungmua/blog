@@ -1,15 +1,13 @@
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 
-from fxqu4nt.logger import create_logger
-from fxqu4nt.market.kdb import get_db
 from fxqu4nt.ui.database_tab import DatabaseTabWidget
 from fxqu4nt.ui.market_tab import MarketTabWidget
 
 
 class MainWidget(QWidget):
     def __init__(self, mwd=None):
-        super().__init__()
+        QWidget.__init__(self)
         self.mwd = mwd
         self.createLayout()
 
@@ -52,11 +50,6 @@ class MainWidget(QWidget):
         tab.setLayout(tab.layout)
 
         return tab
-
-    def closeEvent(self, event):
-        self.logger.info("Close Kdb+ connection...")
-        kdb = get_db()
-        kdb.close()
 
     def onTabChanged(self, idx):
         if idx == 1:

@@ -4,17 +4,19 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 
 from fxqu4nt.market.kdb import get_db
+from fxqu4nt.market.symbol import Symbol
 from fxqu4nt.logger import create_logger
 
 
 class SymbolSettingDialog(QDialog):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, addSymbolCallback=None):
+        QDialog.__init__(self)
         self.logger = create_logger(self.__class__.__name__, "info")
         self.setModal(True)
         self.setWindowTitle("Add Symbol")
         self.createLayout()
         self.kdb = get_db()
+        self.addSymbolCallback = addSymbolCallback
 
     def createLayout(self):
         self.layout = QVBoxLayout(self)
@@ -118,14 +120,20 @@ class SymbolSettingDialog(QDialog):
                 msgBox.exec_()
                 return
             # check exist symbols
-            symbolMeta = self.kdb.get_symbols()
-            if symbolName in symbolMeta.index:
+            if self.kdb.is_symbol_exist(symbolName):
                 msgBox.setWindowTitle("Add Symbol Error")
                 msgBox.setIcon(QMessageBox.Critical)
                 msgBox.setText("Symbol %s was existed, please use update to change symbol's settings" % symbolName)
                 msgBox.exec_()
                 return
 
+            symbol = Symbol(name=symbolName,
+                            point=symbolPoint,
+                            min_vol=symbolMinVol,
+                            max_vol=symbolMaxVol,
+                            vol_step=symbolVolStep)
+            if self.kdb.add_symbol(symbol):
+                self.addSymbolCallback(symbol)
         self.close()
 
     def bntCancelOnClicked(self):
@@ -145,17 +153,21 @@ class SymbolSettingDialog(QDialog):
 
 class MarketTabWidget(QWidget):
     def __init__(self, parent=None):
-        super().__init__()
+        QWidget.__init__(self)
         self.parent = parent
+        self.kdb = get_db()
         self.createLayout()
 
     def createLayout(self):
         self.layout = QHBoxLayout()
 
         lvbox = QVBoxLayout()
-        symbolListWidget = QListWidget()
-        lvbox.addWidget(symbolListWidget)
-
+        self.symbolListWidget = QListWidget()
+        lvbox.addWidget(self.symbolListWidget)
+        symbolMeta = self.kdb.get_symbols()
+        if not symbolMeta.empty:
+            for index, row in symbolMeta.iterrows():
+                self.symbolListWidget.addItem(index)
         bntvbox = QVBoxLayout()
         bntvbox.setAlignment(Qt.AlignTop)
 
@@ -166,13 +178,14 @@ class MarketTabWidget(QWidget):
         removeBnt = QPushButton("Remove")
         bntvbox.addWidget(removeBnt)
 
-        kdbRestoreBnt = QPushButton("Kdb+ Restore")
-        bntvbox.addWidget(kdbRestoreBnt)
-
         self.layout.addLayout(lvbox)
         self.layout.addLayout(bntvbox)
         self.setLayout(self.layout)
 
     def openAddSymbolDialog(self):
-        symbolDialog = SymbolSettingDialog()
+        symbolDialog = SymbolSettingDialog(
+                        addSymbolCallback=self.addSymbolToList)
         symbolDialog.exec_()
+
+    def addSymbolToList(self, symbol: Symbol):
+        self.symbolListWidget.addItem(symbol.name)

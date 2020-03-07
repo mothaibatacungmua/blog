@@ -1,0 +1,1 @@
+SymMeta:([name: `EURUSD`GBPUSD] point:0.00001 0.00001; min_vol:0.01 0.01; max_vol:10000 10000; vol_step:0.01 0.01)
