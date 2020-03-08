@@ -15,6 +15,9 @@ M1_SUFFIX = "_M1"
 SYMBOL_META_TABLE = "SymMeta"
 SYMBOL_META_TABLE_FILE = "SymMeta.dat"
 SYMBOL_PREFIX = "Symbol_"
+SYMBOL_DIR = "Symbols"
+
+SUFFIXES = [TICK_SUFFIX, M1_SUFFIX]
 
 
 class QuotesDB(object):
@@ -81,8 +84,28 @@ class QuotesDB(object):
         self.changed = True
         return True
 
-    def add_tick_data(self, symbol: str, tick_data: str):
-        pass
+    def add_tick_data(self, symbol: Symbol, tick_data: str):
+        tick_path = normalize_path(tick_data)
+        var = SYMBOL_PREFIX+symbol.name+TICK_SUFFIX
+        query = '{var}:("ZFFI"; enlist ",") 0:`:{path}'\
+            .format(var=var, path=tick_path)
+
+        first_date_q = 'select [1] from `{var}'.format(var=var)
+        last_date_q = 'select [-1] from `{var}'.format(var=var)
+
+        try:
+            self._debug(query)
+            self.q(query)
+
+            fd_df = self.q(first_date_q, pandas=True)
+            ld_df = self.q(last_date_q, pandas=True)
+            fd = fd_df.iloc[0]["DateTime"]
+            ld = ld_df.iloc[0]["DateTime"]
+            self.logger.info("Tick data Symbol %s added, from: %s to: %s" % (symbol.name, str(fd), str(ld)))
+        except Exception as e:
+            self.logger.error("Add Symbol to SymMeta table error:%s" % str(e))
+            return False
+        return True
 
     def get_symbols(self):
         try:
@@ -117,6 +140,9 @@ class QuotesDB(object):
         self.changed = True
         return True
 
+    def _get_symbol_path(self, symbol_name):
+        return normalize_path(os.path.join(self.storage, SYMBOL_DIR, symbol_name))
+
     def _get_meta_table_path(self):
         return normalize_path(os.path.join(self.storage, SYMBOL_META_TABLE_FILE))
 
@@ -141,14 +167,54 @@ class QuotesDB(object):
             except Exception as e:
                 self.logger.error("Restore SymMeta table error:%s" % str(e))
 
+    def save_symbol_quotes(self):
+        symbol_meta = self.get_symbols()
+        qfmt = "$[`{var} in key`.;`:{path} set {var};]"
+        for sym_name, row in symbol_meta.iterrows():
+            sym_dir = os.path.join(self.storage, SYMBOL_DIR, sym_name)
+            if not os.path.exists(sym_dir):
+                os.makedirs(sym_dir)
+
+            for suffix in SUFFIXES:
+                var = SYMBOL_PREFIX + sym_name + suffix
+                path = normalize_path(os.path.join(sym_dir, suffix[1:]+".dat"))
+                try:
+                    query = qfmt.format(var=var, path=path)
+                    self._debug(query)
+                    self.q(query)
+                except Exception as e:
+                    self.logger.error("Save tick data for symbol %s table error:%s" % (sym_name, str(e)))
+
+    def restore_symbol_quotes(self):
+        symbol_meta = self.get_symbols()
+        qfmt = "{var}:(get `:{path})"
+        for sym_name, row in symbol_meta.iterrows():
+            sym_dir = os.path.join(self.storage, SYMBOL_DIR, sym_name)
+            if not os.path.exists(sym_dir):
+                continue
+            for suffix in SUFFIXES:
+                var = SYMBOL_PREFIX + sym_name + suffix
+                path = normalize_path(os.path.join(sym_dir, suffix[1:] + ".dat"))
+                try:
+                    if os.path.exists(path):
+                        query = qfmt.format(var=var, path=path)
+                        self._debug(query)
+                        self.q(query)
+                except Exception as e:
+                    self.logger.error("Restore tick data for symbol %s table error:%s" % (sym_name, str(e)))
+
     def save_all(self):
         if self.changed:
-            self.logger.info("Saving SymMeta table")
+            self.logger.info("Saving SymMeta table...")
             self.save_meta_table()
+            self.logger.info("Saving Symbol quotes...")
+            self.save_symbol_quotes()
 
     def restore_all(self):
         self.logger.info("Restore SymMeta table")
         self.restore_meta_table()
+        self.logger.info("Restore Symbol quotes")
+        self.restore_symbol_quotes()
 
 gquotedb = None
 

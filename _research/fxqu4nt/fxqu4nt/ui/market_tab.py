@@ -132,7 +132,7 @@ class SymbolSettingDialog(QDialog):
                             min_vol=symbolMinVol,
                             max_vol=symbolMaxVol,
                             vol_step=symbolVolStep)
-            if self.kdb.add_symbol(symbol):
+            if self.kdb.add_symbol(symbol) and self.kdb.add_tick_data(symbol, symbolTickData):
                 self.addSymbolCallback(symbol)
         self.close()
 

@@ -12,6 +12,10 @@ class MainWindow(QMainWindow):
     size = (480, 320)
 
     def __init__(self, parent=None):
+        self.logger = create_logger(self.__class__.__name__, "info")
+        self.kdb = get_db()
+        self.kdb.restore_all()
+
         super().__init__(parent)
         self.main_widget = MainWidget(self)
         self.setCentralWidget(self.main_widget)
@@ -19,10 +23,6 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(PACKAGE_NAME + " " + VERSION)
         self.resize(*self.size)
         self._move_to_center()
-        self.logger = create_logger(self.__class__.__name__, "info")
-
-        self.kdb = get_db()
-        self.kdb.restore_all()
 
     def _move_to_center(self):
         desktop = QApplication.desktop()
