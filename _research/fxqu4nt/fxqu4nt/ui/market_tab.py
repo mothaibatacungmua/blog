@@ -208,6 +208,7 @@ class MarketTabWidget(QWidget):
 
         removeBnt = QPushButton("Remove")
         bntvbox.addWidget(removeBnt)
+        removeBnt.clicked.connect(self.onRemoveBntClicked)
 
         self.layout.addLayout(lvbox)
         self.layout.addLayout(bntvbox)
@@ -220,3 +221,11 @@ class MarketTabWidget(QWidget):
 
     def addSymbolToList(self, symbol: Symbol):
         self.symbolListWidget.addItem(symbol.name)
+
+    def onRemoveBntClicked(self):
+        item = self.symbolListWidget.currentItem()
+        symbol = item.text()
+        self.kdb.remove_symbol(symbol)
+        self.kdb.remove_symbol_quotes(symbol)
+
+        self.symbolListWidget.takeItem(self.symbolListWidget.row(item))

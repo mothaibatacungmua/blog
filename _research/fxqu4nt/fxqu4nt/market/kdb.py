@@ -216,6 +216,37 @@ class QuotesDB(object):
         self.logger.info("Restore Symbol quotes")
         self.restore_symbol_quotes()
 
+    def remove_symbol(self, symbol: [Symbol, str]):
+        self.changed = True
+        if isinstance(symbol, Symbol):
+            symbol = symbol.name
+        qfmt = "delete from `{table} where name=`{symbol}"
+        try:
+            query = qfmt.format(table=SYMBOL_META_TABLE, symbol=symbol)
+            self._debug(query)
+            self.q(query)
+            self.save_meta_table() # overwrite the current meta table
+        except Exception as e:
+            self.logger.error("Remove symbol %s table error:%s" % (symbol, str(e)))
+
+    def remove_symbol_quotes(self, symbol: [Symbol, str]):
+        self.changed = True
+        if isinstance(symbol, Symbol):
+            symbol = symbol.name
+        sym_dir = os.path.join(self.storage, SYMBOL_DIR, symbol)
+        qfmt = "$[`{var} in key`.;delete {var} from `.;]"
+        for suffix in SUFFIXES:
+            var = SYMBOL_PREFIX + symbol + suffix
+            path = normalize_path(os.path.join(sym_dir, suffix[1:] + ".dat"))
+            try:
+                query = qfmt.format(var=var, path=path)
+                self._debug(query)
+                self.q(query)
+                if os.path.exists(path):
+                    os.remove(path)
+            except Exception as e:
+                self.logger.error("Remove tick data for symbol %s table error:%s" % (symbol, str(e)))
+
 gquotedb = None
 
 
