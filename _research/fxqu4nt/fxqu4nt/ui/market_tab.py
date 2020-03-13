@@ -151,6 +151,40 @@ class SymbolSettingDialog(QDialog):
                 self.tickDataBox.setText(filenames[0])
 
 
+class SymbolListWidget(QListWidget):
+    def __init__(self, parent=None):
+        QWidget.__init__(self)
+        self.parent = parent
+        self.kdb = get_db()
+        self.createLayout()
+
+    def createLayout(self):
+        self.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.itemClicked.connect(self.onItemClick)
+        self.viewport().installEventFilter(self)
+
+        symbolMeta = self.kdb.get_symbols()
+        if not symbolMeta.empty:
+            for symbol, row in symbolMeta.iterrows():
+                self.addItem(symbol)
+
+    def onItemClick(self, item: QListWidgetItem):
+        pass
+
+    def eventFilter(self, source: QObject, event: QEvent) -> bool:
+        if event.type() == QEvent.MouseButtonPress and source is self.viewport():
+            if event.button() == Qt.RightButton:
+                item = self.itemAt(event.pos())
+                if item:
+                    self.setCurrentItem(item)
+                    menu = QMenu()
+                    menu.addAction('View')
+                    menu.addAction('Update')
+                    if menu.exec_(event.globalPos()):
+                        return True
+        return super(QListWidget, self).eventFilter(source, event)
+
+
 class MarketTabWidget(QWidget):
     def __init__(self, parent=None):
         QWidget.__init__(self)
@@ -162,12 +196,9 @@ class MarketTabWidget(QWidget):
         self.layout = QHBoxLayout()
 
         lvbox = QVBoxLayout()
-        self.symbolListWidget = QListWidget()
+        self.symbolListWidget = SymbolListWidget()
+
         lvbox.addWidget(self.symbolListWidget)
-        symbolMeta = self.kdb.get_symbols()
-        if not symbolMeta.empty:
-            for index, row in symbolMeta.iterrows():
-                self.symbolListWidget.addItem(index)
         bntvbox = QVBoxLayout()
         bntvbox.setAlignment(Qt.AlignTop)
 
