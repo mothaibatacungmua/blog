@@ -44,7 +44,9 @@ class SymbolSettingDialog(QDialog):
         formLayout.addRow(QLabel("Maximal Volume:"), QLineEdit("10000"))
         self.volStepBox = QLineEdit("0.01")
         formLayout.addRow(QLabel("Volume Step:"), QLineEdit("0.01"))
-
+        self.saveCheckBox = QCheckBox()
+        self.saveCheckBox.setChecked(True)
+        formLayout.addRow(QLabel("Save to disk:"), self.saveCheckBox)
         self.formGroupBox.setLayout(formLayout)
         self.layout.addWidget(self.formGroupBox)
 

@@ -6,12 +6,25 @@ VERSION = "0.0.1"
 
 gmcnf = None
 
+
 def get_project_dir():
     return os.path.dirname(__file__)
 
 
 def get_appdata_dir():
     return os.path.join(os.path.expandvars("%LOCALAPPDATA%"), "fxqu4nt")
+
+
+def get_q_dir():
+    return os.path.join(get_project_dir(), "q")
+
+
+def get_all_q_script_paths():
+    ret = []
+    for f in os.listdir(get_q_dir()):
+        if f.endswith(".q"):
+            ret.append(os.path.join(get_q_dir(), f))
+    return ret
 
 
 def get_mcnf():

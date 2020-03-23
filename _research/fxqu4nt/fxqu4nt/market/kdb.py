@@ -9,12 +9,13 @@ from fxqu4nt.market.symbol import Symbol
 from fxqu4nt.logger import create_logger
 from fxqu4nt.settings import get_mcnf
 from fxqu4nt.utils.common import normalize_path
+from fxqu4nt.market.listener import Listener
 
-TICK_SUFFIX = "_TICK"
-M1_SUFFIX = "_M1"
+TICK_SUFFIX = "wTICK"
+M1_SUFFIX = "wM1"
 SYMBOL_META_TABLE = "SymMeta"
 SYMBOL_META_TABLE_FILE = "SymMeta.dat"
-SYMBOL_PREFIX = "Symbol_"
+SYMBOL_PREFIX = "Symbolw"
 SYMBOL_DIR = "Symbols"
 
 SUFFIXES = [TICK_SUFFIX, M1_SUFFIX]
@@ -26,9 +27,9 @@ class QuotesDB(object):
         self.port = port
         self.storage = storage
         self.logger = create_logger(self.__class__.__name__,  level='debug')
-        self.q = qconnection.QConnection(host=host, port=port)
+        self.q: qconnection.QConnection = qconnection.QConnection(host=host, port=port)
         self.q.open()
-        time.sleep(0.5)
+        time.sleep(0.1)
         self.changed = False
         if self.q.is_connected():
             self.logger.info("Connected to kdb+ server. IPC version: %s" % self.q.protocol_version)
@@ -84,9 +85,13 @@ class QuotesDB(object):
         self.changed = True
         return True
 
-    def add_tick_data(self, symbol: Symbol, tick_data: str):
+    def add_tick_data(self, symbol: [str, Symbol], tick_data: str):
         tick_path = normalize_path(tick_data)
-        var = SYMBOL_PREFIX+symbol.name+TICK_SUFFIX
+        if isinstance(symbol, Symbol):
+            name = symbol.name
+        else:
+            name = symbol
+        var = SYMBOL_PREFIX+name+TICK_SUFFIX
         query = '{var}:("ZFFI"; enlist ",") 0:`:{path}'\
             .format(var=var, path=tick_path)
 
@@ -101,11 +106,26 @@ class QuotesDB(object):
             ld_df = self.q(last_date_q, pandas=True)
             fd = fd_df.iloc[0]["DateTime"]
             ld = ld_df.iloc[0]["DateTime"]
-            self.logger.info("Tick data Symbol %s added, from: %s to: %s" % (symbol.name, str(fd), str(ld)))
+            self.logger.info("Tick data Symbol %s added, from: %s to: %s" % (name, str(fd), str(ld)))
         except Exception as e:
-            self.logger.error("Add Symbol to SymMeta table error:%s" % str(e))
+            self.logger.error("Add tick data for symbol %s error:%s" % (name, str(e)))
             return False
         return True
+
+    def async_add_tick_data(self, symbol: [str, Symbol], tick_data: str, listener: Listener):
+        tick_path = normalize_path(tick_data)
+        if isinstance(symbol, Symbol):
+            name = symbol.name
+        else:
+            name = symbol
+        symbol_dir = normalize_path(os.path.join(self.storage, SYMBOL_DIR, name, "quotes"))
+        # the function `csvpt` was loaded when program start. See q/quote_csv_partition.q for detail
+        listener.start()
+        listener.set_q(self.q)
+        try:
+            self.q.sendAsync('csvpt', symbol_dir, tick_path)
+        except Exception as e:
+            self.logger.error("Add tick data for symbol %s error:%s" % (name, str(e)))
 
     def get_symbols(self):
         try:
@@ -246,6 +266,18 @@ class QuotesDB(object):
                     os.remove(path)
             except Exception as e:
                 self.logger.error("Remove tick data for symbol %s table error:%s" % (symbol, str(e)))
+
+    def load_script(self, script_path):
+        script_path = normalize_path(script_path)
+        qfmt = "\\l {path}"
+
+        try:
+            query = qfmt.format(path=script_path)
+            self._debug(query)
+            self.q(query)
+        except Exception as e:
+            self.logger.error("Load script %s to kdb server error:%s" % (script_path, str(e)))
+
 
 gquotedb = None
 
