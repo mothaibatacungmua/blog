@@ -3,10 +3,39 @@ import re
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 
+from qpython.qconnection import MessageType
+from qpython.qcollection import QDictionary
+
 from fxqu4nt.market.kdb import get_db
 from fxqu4nt.market.symbol import Symbol
+from fxqu4nt.market.listener import Listener
 from fxqu4nt.logger import create_logger
 
+
+class ImportTickListener(Listener):
+    def __init__(self, dateLabelWidget, q=None):
+        super(ImportTickListener, self).__init__(q)
+        self.dateLabelWidget = dateLabelWidget
+        self.logger = create_logger(self.__class__.__name__)
+
+    def run(self):
+        prev_date = ""
+        while not self.stopped():
+            message = self.q.receive(data_only=False, raw=False)
+            if message.type != MessageType.ASYNC:
+                print('Unexpected message, expected message of type: ASYNC')
+
+            if isinstance(message.data, bytes):
+                if message.data == b'TASK_DONE':
+                    self.logger.info("Proccesed: " + prev_date)
+                    self.logger.info("Import tick done!")
+                    self.stop()
+            if isinstance(message.data, QDictionary):
+                next_date = message.data[b'processed'].decode("utf-8").strip()
+                if len(next_date):
+                    if next_date != prev_date:
+                        self.logger.info("Proccesed: " + prev_date)
+                        prev_date = next_date
 
 class SymbolSettingDialog(QDialog):
     def __init__(self, addSymbolCallback=None):
@@ -64,6 +93,7 @@ class SymbolSettingDialog(QDialog):
         self.setLayout(self.layout)
 
     def bntOkOnClicked(self):
+        """ Hanle when OK button clicked """
         msgBox = QMessageBox()
         bInvalid = False
         errorMsg = ""
@@ -134,7 +164,11 @@ class SymbolSettingDialog(QDialog):
                             min_vol=symbolMinVol,
                             max_vol=symbolMaxVol,
                             vol_step=symbolVolStep)
-            if self.kdb.add_symbol(symbol) and self.kdb.add_tick_data(symbol, symbolTickData):
+            if self.kdb.add_symbol(symbol):
+                if self.saveCheckBox.isChecked():
+                    self.kdb.async_add_tick_data(symbol, symbolTickData, ImportTickListener(None))
+                else:
+                    self.kdb.add_tick_data(symbol, symbolTickData)
                 self.addSymbolCallback(symbol)
         self.close()
 
@@ -166,7 +200,7 @@ class SymbolListWidget(QListWidget):
         self.viewport().installEventFilter(self)
 
         symbolMeta = self.kdb.get_symbols()
-        if not symbolMeta.empty:
+        if symbolMeta is not None:
             for symbol, row in symbolMeta.iterrows():
                 self.addItem(symbol)
 
@@ -227,7 +261,8 @@ class MarketTabWidget(QWidget):
     def onRemoveBntClicked(self):
         item = self.symbolListWidget.currentItem()
         symbol = item.text()
-        self.kdb.remove_symbol(symbol)
-        self.kdb.remove_symbol_quotes(symbol)
+
+        if self.kdb.remove_symbol(symbol):
+            self.kdb.remove_symbol_quotes(symbol)
 
         self.symbolListWidget.takeItem(self.symbolListWidget.row(item))

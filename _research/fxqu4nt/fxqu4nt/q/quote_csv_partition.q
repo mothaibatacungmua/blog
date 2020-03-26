@@ -1,8 +1,9 @@
-stb:{[d;zpt] sd:(d,"/",string zpt[0]),"/quote/";(hsym`$sd) set .Q.en[hsym`$d;zpt[1]];(neg .z.w)(enlist[`processed]! enlist d)}
-dpt:{[d;t] (stb[d;]')p,'(enlist')(?[t;;0b;()]')(enlist')((=;($;enlist `date;`DateTime);)')p:?[;();();`Date]?[t;();1b;enlist[`Date]!enlist (`date$;`DateTime)]}
+stb:{[d;tbn;zpt] sd:(d,"/",string zpt[0]),tbn;(hsym`$sd) set .Q.en[hsym`$d;zpt[1]];(neg .z.w)(enlist[`processed]! enlist string zpt[0])}
+dpt:{[d;tbn;t] (stb[d;tbn]')p,'(enlist')(?[t;;0b;()]')(enlist')((=;($;enlist `date;`DateTime);)')p:?[;();();`Date]?[t;();1b;enlist[`Date]!enlist (`date$;`DateTime)]}
 
-w:{[d] dpt[d;]}
+wqcsv:{[d;tbn] dpt[d;tbn]}
 colnames:`DateTime`Bid`Ask`Volume
-r:flip colnames!("ZFFI";",")0:
+rqcsv:flip colnames!("ZFFI";",")0:
 
-csvpt:{[d;f] .Q.fs[w[d] r@]hsym`$f}
+csvpt:{[d;f;tbn] .Q.fs[wqcsv[d;tbn] rqcsv@]hsym`$f}
+tcsvpt:{[d;f;tbn] csvpt[d;f;"/",tbn,"/"];(neg .z.w)("TASK_DONE")}

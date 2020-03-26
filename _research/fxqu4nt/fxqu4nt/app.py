@@ -1,8 +1,9 @@
 import sys
 
 from PyQt5.QtWidgets import QMainWindow, QApplication
+
 from fxqu4nt.ui.widget import MainWidget
-from fxqu4nt.settings import PACKAGE_NAME, VERSION
+from fxqu4nt.settings import PACKAGE_NAME, VERSION, get_all_q_script_paths
 from fxqu4nt.market.kdb import get_db
 from fxqu4nt.logger import create_logger
 
@@ -23,6 +24,11 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(PACKAGE_NAME + " " + VERSION)
         self.resize(*self.size)
         self._move_to_center()
+        self._load_q_scripts()
+
+    def _load_q_scripts(self):
+        for sp in get_all_q_script_paths():
+            self.kdb.load_script(sp)
 
     def _move_to_center(self):
         desktop = QApplication.desktop()
@@ -31,7 +37,6 @@ class MainWindow(QMainWindow):
         self.move(int(x), int(y))
 
     def closeEvent(self, event):
-        self.kdb.save_all()
         self.logger.info("Close Kdb+ connection...")
         self.kdb.close()
 
