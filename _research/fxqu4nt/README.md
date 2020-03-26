@@ -1,4 +1,4 @@
-### FxQu4nt - A walking through of "Advances in Financial Machine Learning" in Forex Market
+## FxQu4nt - A walking through of "Advances in Financial Machine Learning" in Forex Market
 
 ## Note
 **At present, it only supports for Window OS.**
