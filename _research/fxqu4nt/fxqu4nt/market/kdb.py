@@ -160,9 +160,11 @@ class QuotesDB(object):
         else:
             name = symbol
         var = SYMBOL_PREFIX + name + TICK_SUFFIX
+        origin_dir = os.path.join(self.storage, SYMBOL_DIR, name, TICK_SUFFIX[1:]).replace("/", "\\")
         symbol_dir = normalize_path(os.path.join(self.storage, SYMBOL_DIR, name, TICK_SUFFIX[1:]))
         try:
             self.q.sendAsync('tcsvpt', symbol_dir, tick_path, var)
+            return origin_dir
         except Exception as e:
             self.logger.error("Add tick data for symbol %s error:%s" % (name, str(e)))
 
