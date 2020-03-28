@@ -1,5 +1,7 @@
 import os
 import re
+import time
+from threading import Event
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 
@@ -8,34 +10,90 @@ from qpython.qcollection import QDictionary
 
 from fxqu4nt.market.kdb import get_db
 from fxqu4nt.market.symbol import Symbol
-from fxqu4nt.market.listener import Listener
 from fxqu4nt.logger import create_logger
 
 
-class ImportTickListener(Listener):
-    def __init__(self, dateLabelWidget, q=None):
-        super(ImportTickListener, self).__init__(q)
-        self.dateLabelWidget = dateLabelWidget
+class ImportTickListener(QRunnable):
+    def __init__(self, setTextFn, enableCloseFn, q=None):
+        super(ImportTickListener, self).__init__()
         self.logger = create_logger(self.__class__.__name__)
+        self._stopper = Event()
+        self.q = q
+        self.setTextFn = setTextFn
+        self.enableCloseFn = enableCloseFn
 
+    def stop(self):
+        self._stopper.set()
+
+    def stopped(self):
+        return self._stopper.isSet()
+
+    @pyqtSlot()
     def run(self):
         prev_date = ""
+        first_date = None
+
         while not self.stopped():
             message = self.q.receive(data_only=False, raw=False)
+            self.setTextFn("Processing...")
             if message.type != MessageType.ASYNC:
-                print('Unexpected message, expected message of type: ASYNC')
+                self.logger.error('Unexpected message, expected message of type: ASYNC')
+                self.setTextFn("Error when do process")
 
             if isinstance(message.data, bytes):
                 if message.data == b'TASK_DONE':
-                    self.logger.info("Proccesed: " + prev_date)
-                    self.logger.info("Import tick done!")
+                    last_date = prev_date
+                    self.logger.info("Completed importing quotes data from %s to %s" % (first_date, last_date))
+                    self.setTextFn("Proccesed: " + prev_date)
+                    time.sleep(0.5)
+                    self.setTextFn("Import tick done!")
+                    time.sleep(0.5)
+                    self.enableCloseFn()
                     self.stop()
+                    continue
             if isinstance(message.data, QDictionary):
                 next_date = message.data[b'processed'].decode("utf-8").strip()
                 if len(next_date):
                     if next_date != prev_date:
-                        self.logger.info("Proccesed: " + prev_date)
                         prev_date = next_date
+                        if first_date is None:
+                            first_date = prev_date
+                        self.setTextFn("Proccesed: " + prev_date)
+
+
+class DateProcessedDialog(QDialog):
+    def __init__(self, parent=None, q=None):
+        self.parent = parent
+        QDialog.__init__(self)
+        self.threadpool = QThreadPool()
+        self.createLayout()
+        worker = ImportTickListener(self.setTextFn, self.enableClose, q)
+        self.threadpool = QThreadPool()
+        self.threadpool.start(worker)
+
+    def setTextFn(self, text):
+        self.infoLabel.setText(text)
+
+    def enableClose(self):
+        self.okBnt.setEnabled(True)
+
+    def okBntCicked(self):
+        self.close()
+
+    def createLayout(self):
+        self.setFixedWidth(200)
+        self.setWindowFlag(Qt.WindowContextHelpButtonHint, False)
+        self.setWindowFlag(Qt.WindowCloseButtonHint, False)
+        layout = QVBoxLayout()
+        self.infoLabel = QLabel("Processing...")
+        layout.addWidget(self.infoLabel)
+        self.okBnt = QPushButton("Ok")
+        self.okBnt.setEnabled(False)
+        self.okBnt.clicked.connect(self.okBntCicked)
+        layout.addWidget(self.okBnt)
+        self.layout = layout
+        self.setLayout(self.layout)
+
 
 class SymbolSettingDialog(QDialog):
     def __init__(self, addSymbolCallback=None):
@@ -166,7 +224,10 @@ class SymbolSettingDialog(QDialog):
                             vol_step=symbolVolStep)
             if self.kdb.add_symbol(symbol):
                 if self.saveCheckBox.isChecked():
-                    self.kdb.async_add_tick_data(symbol, symbolTickData, ImportTickListener(None))
+                    pdialog = DateProcessedDialog(self, q=self.kdb.q)
+                    self.kdb.async_add_tick_data(symbol, symbolTickData)
+                    self.hide()
+                    pdialog.exec_()
                 else:
                     self.kdb.add_tick_data(symbol, symbolTickData)
                 self.addSymbolCallback(symbol)

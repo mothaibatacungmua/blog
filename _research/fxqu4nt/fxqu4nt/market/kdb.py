@@ -141,7 +141,7 @@ class QuotesDB(object):
             return False
         return True
 
-    def async_add_tick_data(self, symbol: [str, Symbol], tick_data: str, listener: Listener):
+    def async_add_tick_data(self, symbol: [str, Symbol], tick_data: str):
         """  Add quotes data for a symbol, using for large file
         The function `tcsvpt` was loaded when program start. The `tcsvqt` will return date which processed on demand.
         See q/quote_csv_partition.q for detail.
@@ -158,8 +158,6 @@ class QuotesDB(object):
             name = symbol
         var = SYMBOL_PREFIX + name + TICK_SUFFIX
         symbol_dir = normalize_path(os.path.join(self.storage, SYMBOL_DIR, name, TICK_SUFFIX[1:]))
-        listener.set_q(self.q)
-        listener.start()
         try:
             self.q.sendAsync('tcsvpt', symbol_dir, tick_path, var)
         except Exception as e:
@@ -325,7 +323,10 @@ class QuotesDB(object):
             path = normalize_path(os.path.join(sym_dir, suffix[1:]))
             try:
                 if os.path.exists(path):
-                    shutil.rmtree(path)
+                    for f in os.listdir(path):
+                        if f != ".":
+                            rp = os.path.join(path, f)
+                            shutil.rmtree(rp)
             except Exception as e:
                 self.logger.error("Remove tick data for symbol %s table error:%s" % (symbol, str(e)))
 
