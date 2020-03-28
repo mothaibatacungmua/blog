@@ -43,6 +43,9 @@ class QuotesDB(object):
         else:
             self.logger.error("Connect to kdb+ server fail!")
 
+    def clone(self):
+        return QuotesDB(host=self.host, port=self.port, storage=self.storage)
+
     def test(self):
         """ Test connect to q server """
         try:

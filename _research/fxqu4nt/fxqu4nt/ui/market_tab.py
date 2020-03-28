@@ -14,11 +14,12 @@ from fxqu4nt.logger import create_logger
 
 
 class ImportTickListener(QRunnable):
-    def __init__(self, setTextFn, enableCloseFn, q=None):
+    def __init__(self, setTextFn, enableCloseFn, q=None, file=None):
         super(ImportTickListener, self).__init__()
         self.logger = create_logger(self.__class__.__name__)
         self._stopper = Event()
         self.q = q
+        self.file = file
         self.setTextFn = setTextFn
         self.enableCloseFn = enableCloseFn
 
@@ -35,19 +36,14 @@ class ImportTickListener(QRunnable):
 
         while not self.stopped():
             message = self.q.receive(data_only=False, raw=False)
-            self.setTextFn("Processing...")
+            self.setTextFn("Importing " + self.file + "...")
             if message.type != MessageType.ASYNC:
-                self.logger.error('Unexpected message, expected message of type: ASYNC')
-                self.setTextFn("Error when do process")
+                continue
 
             if isinstance(message.data, bytes):
                 if message.data == b'TASK_DONE':
                     last_date = prev_date
-                    self.logger.info("Completed importing quotes data from %s to %s" % (first_date, last_date))
-                    self.setTextFn("Proccesed: " + prev_date)
-                    time.sleep(0.5)
-                    self.setTextFn("Import tick done!")
-                    time.sleep(0.5)
+                    self.setTextFn("Imported quotes data from %s to %s" % (first_date, last_date))
                     self.enableCloseFn()
                     self.stop()
                     continue
@@ -58,16 +54,16 @@ class ImportTickListener(QRunnable):
                         prev_date = next_date
                         if first_date is None:
                             first_date = prev_date
-                        self.setTextFn("Proccesed: " + prev_date)
 
 
 class DateProcessedDialog(QDialog):
-    def __init__(self, parent=None, q=None):
+    def __init__(self, parent=None, q=None, file=None):
         self.parent = parent
         QDialog.__init__(self)
+        self.file = file
         self.threadpool = QThreadPool()
         self.createLayout()
-        worker = ImportTickListener(self.setTextFn, self.enableClose, q)
+        worker = ImportTickListener(self.setTextFn, self.enableClose, q, file)
         self.threadpool = QThreadPool()
         self.threadpool.start(worker)
 
@@ -81,11 +77,11 @@ class DateProcessedDialog(QDialog):
         self.close()
 
     def createLayout(self):
-        self.setFixedWidth(200)
+        # self.setFixedWidth(300)
         self.setWindowFlag(Qt.WindowContextHelpButtonHint, False)
         self.setWindowFlag(Qt.WindowCloseButtonHint, False)
         layout = QVBoxLayout()
-        self.infoLabel = QLabel("Processing...")
+        self.infoLabel = QLabel("Importing " + self.file + "...")
         layout.addWidget(self.infoLabel)
         self.okBnt = QPushButton("Ok")
         self.okBnt.setEnabled(False)
@@ -224,7 +220,7 @@ class SymbolSettingDialog(QDialog):
                             vol_step=symbolVolStep)
             if self.kdb.add_symbol(symbol):
                 if self.saveCheckBox.isChecked():
-                    pdialog = DateProcessedDialog(self, q=self.kdb.q)
+                    pdialog = DateProcessedDialog(self, q=self.kdb.q, file=symbolTickData)
                     self.kdb.async_add_tick_data(symbol, symbolTickData)
                     self.hide()
                     pdialog.exec_()
