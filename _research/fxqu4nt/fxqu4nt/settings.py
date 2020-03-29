@@ -1,6 +1,6 @@
 import os
 import yaml
-
+from fxqu4nt.utils.common import normalize_path
 PACKAGE_NAME = "FxQu4nt"
 VERSION = "0.0.1"
 
@@ -19,11 +19,20 @@ def get_q_dir():
     return os.path.join(get_project_dir(), "q")
 
 
+def get_all_q_utils_paths():
+    ret = []
+    utils_dir = os.path.join(get_q_dir(), "utils")
+    for f in os.listdir(utils_dir):
+        if f.endswith(".q"):
+            ret.append(normalize_path(os.path.join(utils_dir, f)))
+    return ret
+
+
 def get_all_q_script_paths():
     ret = []
     for f in os.listdir(get_q_dir()):
         if f.endswith(".q"):
-            ret.append(os.path.join(get_q_dir(), f))
+            ret.append(normalize_path(os.path.join(get_q_dir(), f)))
     return ret
 
 

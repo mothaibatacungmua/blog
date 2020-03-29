@@ -317,7 +317,10 @@ class MarketTabWidget(QWidget):
 
     def onRemoveBntClicked(self):
         item = self.symbolListWidget.currentItem()
+        if item is None:
+            return
         symbol = item.text()
+
 
         if self.kdb.remove_symbol(symbol):
             self.kdb.remove_symbol_quotes(symbol)

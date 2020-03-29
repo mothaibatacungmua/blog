@@ -3,7 +3,7 @@ import sys
 from PyQt5.QtWidgets import QMainWindow, QApplication
 
 from fxqu4nt.ui.widget import MainWidget
-from fxqu4nt.settings import PACKAGE_NAME, VERSION, get_all_q_script_paths
+from fxqu4nt.settings import PACKAGE_NAME, VERSION, get_all_q_script_paths, get_all_q_utils_paths
 from fxqu4nt.market.kdb import get_db
 from fxqu4nt.logger import create_logger
 
@@ -27,6 +27,8 @@ class MainWindow(QMainWindow):
         self._load_q_scripts()
 
     def _load_q_scripts(self):
+        for sp in get_all_q_utils_paths():
+            self.kdb.load_script(sp)
         for sp in get_all_q_script_paths():
             self.kdb.load_script(sp)
 
