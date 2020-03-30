@@ -1,5 +1,3 @@
-/ TODO
-
 \d .tickbar
 bar:{[tb;pt] ?[tb;();0b;`O`H`L`C`Vol`Open`Close!((first;pt);(max;pt);(min;pt);(last;pt);(sum;`Volume);(first;`DateTime);(last;`DateTime))]}
 totalTicks:{[ticktb;b;e] count select from ticktb where DateTime>=b, DateTime<e}
