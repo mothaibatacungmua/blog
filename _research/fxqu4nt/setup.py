@@ -8,7 +8,8 @@ setup(
         'click',
         'qpython==2.0.0',
         'PyQt5==5.13.0',
-        'pandas==0.25.3'
+        'pandas==0.25.3',
+        'pyqtgraph==0.10.0'
     ],
     entry_points='''
         [console_scripts]

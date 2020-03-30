@@ -271,12 +271,21 @@ class SymbolListWidget(QListWidget):
                 if item:
                     self.setCurrentItem(item)
                     menu = QMenu()
-                    menu.addAction('View')
-                    menu.addAction('Update')
+                    viewAction = QAction('View', self)
+                    viewAction.triggered.connect(self.viewSymbolCall)
+                    updateAction = QAction('Update', self)
+                    updateAction.triggered.connect(self.updateSymbolCall)
+                    menu.addAction(viewAction)
+                    menu.addAction(updateAction)
                     if menu.exec_(event.globalPos()):
                         return True
         return super(QListWidget, self).eventFilter(source, event)
 
+    def viewSymbolCall(self):
+        pass
+
+    def updateSymbolCall(self):
+        pass
 
 class MarketTabWidget(QWidget):
     def __init__(self, parent=None):
@@ -320,7 +329,6 @@ class MarketTabWidget(QWidget):
         if item is None:
             return
         symbol = item.text()
-
 
         if self.kdb.remove_symbol(symbol):
             self.kdb.remove_symbol_quotes(symbol)
