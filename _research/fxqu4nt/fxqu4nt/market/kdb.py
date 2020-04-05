@@ -76,6 +76,67 @@ class QuotesDB(object):
             name = symbol
         return SYMBOL_PREFIX+name+TICK_SUFFIX
 
+    def count_quote_row(self, symbol: [str, Symbol]):
+        """ Count number quotes row for symbol
+
+        :param symbol: str or Symbol instance
+        :return: Count of quotes
+        """
+        qfmt = "count select from {tbn}"
+        try:
+            query = qfmt.format(tbn=self.quote_table_name(symbol))
+            result = self.q(query)
+            self._debug(query)
+            return result
+        except Exception as e:
+            if isinstance(symbol, Symbol):
+                name = symbol.name
+            else:
+                name = symbol
+            self.logger.error("Count quote table for symbol %s error: %s" % (name, str(e)))
+        return None
+
+    def first_quote_date(self, symbol: [str, Symbol]):
+        """ Get the first quote row for symbol
+
+        :param symbol: str or Symbol instance
+        :return: The first quote row
+        """
+        qfmt = ".Q.ind[{tbn};enlist[0]]"
+        try:
+            print(self.quote_table_name(symbol))
+            query = qfmt.format(tbn=self.quote_table_name(symbol))
+            self._debug(query)
+            result = self.q(query, pandas=True)
+            return result.iloc[0]["DateTime"]
+        except Exception as e:
+            if isinstance(symbol, Symbol):
+                name = symbol.name
+            else:
+                name = symbol
+            self.logger.error("Get first quote row for symbol %s error: %s" % (name, str(e)))
+        return None
+
+    def last_quote_date(self, symbol: [str, Symbol]):
+        """ Get the last quote row for symbol
+
+        :param symbol: str or Symbol instance
+        :return: The last quote row
+        """
+        qfmt = ".Q.ind[{tbn};{last}]"
+        try:
+            query = qfmt.format(tbn=self.quote_table_name(symbol), last=self.count_quote_row(symbol))
+            result = self.q(query, pandas=True)
+            self._debug(query)
+            return result.iloc[0]["DateTime"]
+        except Exception as e:
+            if isinstance(symbol, Symbol):
+                name = symbol.name
+            else:
+                name = symbol
+            self.logger.error("Get first quote row for symbol %s error: %s" % (name, str(e)))
+        return None
+
     def add_symbols(self, symbols: List[Symbol]):
         """Add a list symbols
 

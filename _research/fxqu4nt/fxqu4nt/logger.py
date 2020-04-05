@@ -16,7 +16,7 @@ def create_logger(name, level='info'):
     ch.setLevel(lvl)
     # create formatter
     formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d,%H:%M:%S')
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%dT%H:%M:%S')
     # add formatter to ch
     ch.setFormatter(formatter)
     # add ch to logger

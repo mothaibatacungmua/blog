@@ -10,6 +10,7 @@ from qpython.qcollection import QDictionary
 
 from fxqu4nt.market.kdb import get_db
 from fxqu4nt.market.symbol import Symbol
+from fxqu4nt.ui.view_symbol import ViewSymbol
 from fxqu4nt.logger import create_logger
 
 
@@ -92,6 +93,7 @@ class DateProcessedDialog(QDialog):
 
 
 class SymbolSettingDialog(QDialog):
+    """ Dialog controls symbols's settings"""
     def __init__(self, addSymbolCallback=None):
         QDialog.__init__(self)
         self.logger = create_logger(self.__class__.__name__, "info")
@@ -282,12 +284,16 @@ class SymbolListWidget(QListWidget):
         return super(QListWidget, self).eventFilter(source, event)
 
     def viewSymbolCall(self):
-        pass
+        currentSymbol = self.currentItem().text()
+        viewDialog = ViewSymbol(symbol=currentSymbol, parent=self)
+        viewDialog.show()
 
     def updateSymbolCall(self):
         pass
 
+
 class MarketTabWidget(QWidget):
+    """ Widget display list imported symbols """
     def __init__(self, parent=None):
         QWidget.__init__(self)
         self.parent = parent
