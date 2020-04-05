@@ -3,14 +3,13 @@ import shutil
 import time
 import qpython
 import pandas as pd
-from typing import List, Union
+from typing import List
 from qpython import qconnection
 
 from fxqu4nt.market.symbol import Symbol
 from fxqu4nt.logger import create_logger
 from fxqu4nt.settings import get_mcnf
 from fxqu4nt.utils.common import normalize_path
-from fxqu4nt.market.listener import Listener
 
 TICK_SUFFIX = "zTick"
 M1_SUFFIX = "zM1"
@@ -64,6 +63,18 @@ class QuotesDB(object):
     def close(self):
         """ Close q connection """
         self.q.close()
+
+    def quote_table_name(self, symbol: [str, Symbol]):
+        """ Get Quote Table name of a symbol
+
+        :param symbol: str or Symbol instance
+        :return: Quote Table name of symbol in q
+        """
+        if isinstance(symbol, Symbol):
+            name = symbol.name
+        else:
+            name = symbol
+        return SYMBOL_PREFIX+name+TICK_SUFFIX
 
     def add_symbols(self, symbols: List[Symbol]):
         """Add a list symbols

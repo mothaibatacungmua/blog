@@ -3,6 +3,7 @@ from qpython import qconnection
 
 
 class Listener(Thread):
+    """ Using for q async calls"""
     def __init__(self, q=None):
         super(Listener, self).__init__()
         self.q = q
