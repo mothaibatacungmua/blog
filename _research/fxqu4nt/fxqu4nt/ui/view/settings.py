@@ -1,22 +1,33 @@
 from collections import namedtuple
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
-
+from datetime import datetime
+from fxqu4nt.market.constant import PriceType
 Attr = namedtuple("Attr", field_names=["name", "value"])
 
+PRICE_TYPES = [PriceType.Ask.name, PriceType.Bid.name, "Both"]
 
 class DefaultSettings:
-    def __init__(self, startDate=None):
+    def __init__(self, startDate=None, priceType="Ask"):
         self.attrs = {}
         self.startDate = startDate
+        self.priceType = priceType
 
     @property
     def startDate(self):
         return self.attrs["startDate"].value
 
+    @property
+    def priceType(self):
+        return self.attrs["priceType"].value
+
     @startDate.setter
     def startDate(self, sd):
         self.attrs["startDate"] = Attr(name="Start Date", value=sd)
+
+    @priceType.setter
+    def priceType(self, pt):
+        self.attrs["priceType"] = Attr(name="Price Type", value=pt)
 
     def setAttr(self, key, value, name):
         self.attrs[key] = Attr(name=name, value=value)
@@ -41,11 +52,18 @@ def createSettingsBox(settings: DefaultSettings):
     widgetDict = dict()
 
     for k, v in settings.attrs.items():
+        if k == "priceType":
+
+            continue
         if isinstance(v.value, int) \
             or isinstance(v.value, float) \
-            or isinstance(v.value, str):
-            editWidget = QLineEdit(str(v.value))
-            layout.addRow(QLabel(v.name), editWidget)
+            or isinstance(v.value, str) \
+            or isinstance(v.value, datetime):
+            value = v.value
+            if isinstance(value, datetime):
+                value = value.strftime('%Y-%m-%dT%H:%M:%S')
+            editWidget = QLineEdit(str(value))
+            layout.addRow(QLabel(v.name+":"), editWidget)
             widgetDict[k] = editWidget
 
-    return layout
+    return layout, widgetDict

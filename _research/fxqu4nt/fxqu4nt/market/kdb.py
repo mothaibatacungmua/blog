@@ -104,7 +104,6 @@ class QuotesDB(object):
         """
         qfmt = ".Q.ind[{tbn};enlist[0]]"
         try:
-            print(self.quote_table_name(symbol))
             query = qfmt.format(tbn=self.quote_table_name(symbol))
             self._debug(query)
             result = self.q(query, pandas=True)
@@ -247,6 +246,11 @@ class QuotesDB(object):
             return None
         result.index = result.index.map(lambda x: x.decode("utf-8"))
         return result
+
+    def get_symbol(self, name):
+        z= self.get_symbols().loc[name].to_dict()
+        z['name'] = name
+        return Symbol.from_dict(z)
 
     def update_symbol(self, symbol, ticks):
         # TODO:

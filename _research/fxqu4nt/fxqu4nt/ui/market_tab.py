@@ -285,6 +285,7 @@ class SymbolListWidget(QListWidget):
 
     def viewSymbolCall(self):
         currentSymbol = self.currentItem().text()
+        currentSymbol = self.kdb.get_symbol(currentSymbol)
         viewDialog = ViewSymbol(symbol=currentSymbol, parent=self)
         viewDialog.show()
 

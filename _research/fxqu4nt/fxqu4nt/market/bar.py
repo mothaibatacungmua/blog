@@ -29,7 +29,7 @@ class TickBar(BarBase):
         tbn = self.kdb.quote_table_name(self.symbol)
         qfmt = ".tickbar.makeBars[{tbn};`{price_type};{step_size};{sdt};{edt}]"
         step_size = kwargs["step_size"]
-        pandas = kwargs["pandas"]
+        pandas = kwargs.get("pandas", False)
         try:
             query = qfmt.format(tbn=tbn,
                                 price_type=price_type.name,
