@@ -21,7 +21,6 @@ BAR_TYPES = [TICK_BAR, TICK_VOLUME_BAR, TIME_BAR]
 
 
 class ViewSymbol(QDialog):
-    resized = pyqtSignal()
     def __init__(self, symbol:[str, Symbol], parent=None):
         self.parent = parent
         QDialog.__init__(self, parent=parent)
@@ -48,15 +47,8 @@ class ViewSymbol(QDialog):
         self.adjustedHeight = int(self.desktopHeight * 0.666)
         self.resize(self.adjustedWidth, self.adjustedHeight)
 
-        self.resized.connect(self.drawDefaultBars)
-
-    def resizeEvent(self, event):
-        self.resized.emit()
-        return super(ViewSymbol, self).resizeEvent(event)
-
-    def drawDefaultBars(self):
         defaultBars = self.getBars(self.startDate, self.endDate, TICK_BAR)
-        self.chartWidget.draw(defaultBars)
+        self.chartWidget.draw(defaultBars, computedWidth=self.adjustedWidth - 225)
 
     def createDefaultSettings(self):
         pdFirstDateTime: Timestamp = self.kdb.first_quote_date(self.symbol)
@@ -94,6 +86,7 @@ class ViewSymbol(QDialog):
         # Create setting group box
         settingGroup = QGroupBox("Settings")
         settingGroup.setMaximumWidth(250)
+        settingGroup.setMaximumWidth(225)
         settingVBoxLayout = QVBoxLayout()
         symbolName = self.symbol.name if isinstance(self.symbol, Symbol) else self.symbol
         symblLbl = QLabel("Symbol: " + symbolName)

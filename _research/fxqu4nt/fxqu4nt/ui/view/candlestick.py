@@ -1,6 +1,7 @@
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 import pyqtgraph as pg
+import bisect
 from pyqtgraph import QtCore, QtGui, PlotWidget, AxisItem
 from typing import List
 from datetime import datetime, timedelta
@@ -17,9 +18,11 @@ from fxqu4nt.market.symbol import Symbol
 ## The only required methods are paint() and boundingRect()
 ## (see QGraphicsItem documentation)
 class CandlestickItem(pg.GraphicsObject):
-    def __init__(self, data):
+    def __init__(self, data, rebase, fsc):
         pg.GraphicsObject.__init__(self)
-        self.data = data  ## data must have fields: time, open, close, min, max
+        self.data: OHLC = data  ## data must have fields: time, open, close, min, max
+        self.rebase = rebase
+        self.fsc = fsc
         self.generatePicture()
 
     def generatePicture(self):
@@ -28,14 +31,27 @@ class CandlestickItem(pg.GraphicsObject):
         self.picture = QtGui.QPicture()
         p = QtGui.QPainter(self.picture)
         p.setPen(pg.mkPen('w'))
-        w = (self.data[1][0] - self.data[0][0]) / 3.
-        for (t, open, close, min, max) in self.data:
-            p.drawLine(QtCore.QPointF(t, min), QtCore.QPointF(t, max))
-            if open > close:
-                p.setBrush(pg.mkBrush('r'))
-            else:
-                p.setBrush(pg.mkBrush('g'))
-            p.drawRect(QtCore.QRectF(t - w, open, w * 2, close - open))
+        open_ = self.data.Open
+        high = self.data.High
+        low = self.data.Low
+        close_ = self.data.Close
+        start = self.data.Start
+        end = self.data.End
+
+        diff = (end - start).total_seconds()
+        if diff > 24*3600:
+            diff -= 24*3600
+        if diff > 2*24*3600:
+            diff -= 2*24*3600
+        start_ = self.rebase
+        end_ = self.rebase + diff
+
+        p.drawLine(QtCore.QPointF((start_+end_)/2, low), QtCore.QPointF((start_+end_)/2, high))
+        if open_ > close_:
+            p.setBrush(pg.mkBrush('r'))
+        else:
+            p.setBrush(pg.mkBrush('g'))
+        p.drawRect(QtCore.QRectF(start_+diff*(self.fsc-1)/(2*self.fsc), open_, diff/self.fsc , close_ - open_))
         p.end()
 
     def paint(self, p, *args):
@@ -81,7 +97,18 @@ class CandleSticksWidget(PlotWidget):
         self.symbol = symbol
         self.nDisplayedBars = 100
         self.nTicks = 20
-        self.yStep = self.symbol.point * 125
+        self.yQ = self.symbol.point * 100
+        self.font = QtGui.QFont()
+        self.font.setPointSize(9)
+        self.padding = 0.03
+        self.data = []
+        self.rebaseXValues = []
+        self.sidx = 0
+        self.eidx = 0
+        self.pts = 0
+        self.fsc = 1.25
+        bottomAxis = self.plotItem.getAxis("bottom")
+        bottomAxis.setStyle(tickFont=self.font)
 
     def resizeEvent(self, ev):
         if self.closed:
@@ -94,27 +121,31 @@ class CandleSticksWidget(PlotWidget):
     def _getXRange(self, data: List[OHLC]):
         z = 0
         rebase = [z]
+        dateSet = set()
         for i, s in enumerate(data):
+            dt = datetime(year=s.Start.year, month=s.Start.month, day=s.Start.day)
+            dateSet.add(dt)
             if i > 0:
                 diff = (s.Start - data[i-1].Start).total_seconds()
-                if diff > 24*2*3600: # exclude two weekend days
+                if diff >= 24*2*3600: # exclude two weekend days
                     diff -= 24*2*3600
+                if diff >= 24*3600: # exclude one weekend days
+                    diff -= 24 * 3600
                 z += diff
                 rebase.append(z)
 
-        xMin = rebase[0]
-        xMax = rebase[-1]
-        return xMax, xMin, rebase, data[0].Start
+        return rebase, data[0].Start, dateSet
 
     def _getYRange(self, data: List[OHLC]):
         yMax = -1
         yMin = 10000
 
-        for s in data:
+        for s in data[:self.nTicks]:
             yMax = max(yMax, s.High)
             yMin = min(yMin, s.Low)
-        yMax = yMax - yMax%self.yStep + self.yStep
-        yMin = yMin - yMin%self.yStep
+
+        yMax = yMax - yMax % self.yQ + self.yQ
+        yMin = yMin - yMin % self.yQ
         return yMax, yMin
 
     @staticmethod
@@ -125,25 +156,96 @@ class CandleSticksWidget(PlotWidget):
         buff += "%02d"%dt.hour + ":" "%02d"%dt.minute
         return buff
 
-    def draw(self, data: List[OHLC]):
-        xMax, xMin, rebaseX, baseX = self._getXRange(data)
-        yMax, yMin = self._getYRange(data)
-        xStep = (xMax - xMin)/(self.nTicks)
+    def _realRange(self, minV, maxV, padding=None):
+        if padding is None:
+            return minV, maxV
+        p = (maxV - minV) * padding
+        return (minV-p), (maxV-p)
 
+    @staticmethod
+    def _formDt(dt, dateSet):
+        dtOnlyDay = datetime(year=dt.year, month=dt.month, day=dt.day)
+        while not dtOnlyDay in dateSet:
+            dt = dt + timedelta(seconds=3600 * 24)
+            dtOnlyDay = datetime(year=dt.year, month=dt.month, day=dt.day)
+        dt = datetime(year=dt.year, month=dt.month, day=dt.day, hour=dt.hour, minute=dt.minute)
+        return dt
+
+    def getNSampleByLimitPixels(self, computedWidth, padding=100, barPixel=7):
+        return int(float(computedWidth - padding)/barPixel - 1)
+
+    def getNTicks(self, computedWidth, padding=80):
+        return int(float(computedWidth-padding)/1920 * 30)
+
+    def pixelsToSecond(self, xMin, xMax, computedWidth, padding=80, pixel=2):
+        return (xMax - xMin)/(computedWidth-padding) * pixel
+
+    def _computeXAxis(self, data: List[OHLC], computedWidth, padding=100):
+        self.nTicks = self.getNTicks(computedWidth, padding)
+        rebaseX, baseTime, dateSet = self._getXRange(data)
+        rebaseX = [self.fsc*x for x in rebaseX]
+        xMin = rebaseX[0]
+        xMax = rebaseX[-1]
+        timeStep = (xMax - xMin) / (self.nTicks*self.fsc)
+
+        sumStrPixels = 0
+        for i in range(self.nTicks):
+            dt = self._formDt(baseTime + timedelta(seconds=timeStep*i), dateSet)
+            xTickStr = self.dtToTickStr(dt)
+            sumStrPixels += QtGui.QFontMetrics(self.font).width(xTickStr)
+        avgStrPixesl = sumStrPixels / self.nTicks
+
+        self.nTicks = min(self.nTicks, int((computedWidth - padding) / (avgStrPixesl + 5)))
+        midx = bisect.bisect_right(rebaseX, (self.nTicks-1)*timeStep)
+        rebaseX = rebaseX[:midx]
+        self.rebaseXValues = rebaseX
+        xMin = rebaseX[0]
+        xMax = rebaseX[-1]
+        timeStep = (xMax - xMin) / (self.nTicks * self.fsc)
+        return timeStep, rebaseX[:midx], baseTime, dateSet
+
+    def computeXTicks(self, data: List[OHLC], computedWidth):
+        timeStep, rebaseX, baseX, dateSet = self._computeXAxis(data, computedWidth)
         xTicks = []
+        for i in range(self.nTicks):
+            dt = self._formDt(baseX + timedelta(seconds=timeStep*i), dateSet)
+            xTicks.append((timeStep*i*self.fsc, self.dtToTickStr(dt)))
+        return rebaseX[0], rebaseX[-1], xTicks
+
+    def _computeYAxis(self, data: List[OHLC]):
+        yMax, yMin = self._getYRange(data)
+        yStep = (yMax - yMin)/self.nTicks
+        yStep = yStep - yStep%0.00005
+        yMid = (yMin + yMax)/2
+        yMid = yMid - yMid%yStep
+        yMax = yMid + self.nTicks*yStep*2
+        yMin = yMid - self.nTicks*yStep*2
+
+        return yMin, yMax, yStep
+
+    def computeYTicks(self, data: List[OHLC]):
+        yMin, yMax, yStep = self._computeYAxis(data)
         yTicks = []
         for i in range(self.nTicks):
-            dt = baseX + timedelta(seconds=xStep*i)
-            if dt.weekday() >= 5:
-                dt = dt + timedelta(seconds=2*3600*24)
-            dt = datetime(year=dt.year, month=dt.month, day=dt.day, hour=dt.hour, minute=dt.minute)
-            xTicks.append((xStep*i, self.dtToTickStr(dt)))
-            yTicks.append((yMin+self.yStep*i, "%0.5f" % (yMin+self.yStep*i)))
-        self.setRange(xRange=(xMin, xMax), yRange=(yMin, yMax), disableAutoRange=True)
+            yTicks.append((yMin + yStep *i*4, "%0.5f" % (yMin + yStep * i*4)))
+        return yMin, yMax, yTicks
+
+    def draw(self, data: List[OHLC], computedWidth):
+        self.data = data[:self.getNSampleByLimitPixels(computedWidth)]
+        xMin, xMax, xTicks = self.computeXTicks(self.data, computedWidth)
+        yMin, yMax, yTicks = self.computeYTicks(self.data)
+        self.data = self.data[:len(self.rebaseXValues)]
+        self.setRange(
+            xRange=(xMin, xMax),
+            yRange=(yMin, yMax),
+            disableAutoRange=True,
+            padding=self.padding)
         bottomAxis = self.plotItem.getAxis("bottom")
         bottomAxis.setTicks([xTicks])
 
         leftAxis = self.plotItem.getAxis("left")
         leftAxis.setTicks([yTicks])
 
-        print(self.frameGeometry())
+        for i in range(len(self.data)):
+            item = CandlestickItem(self.data[i], rebase=self.rebaseXValues[i], fsc=self.fsc)
+            self.addItem(item)
