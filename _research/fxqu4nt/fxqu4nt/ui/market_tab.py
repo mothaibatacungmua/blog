@@ -319,6 +319,10 @@ class MarketTabWidget(QWidget):
         bntvbox.addWidget(removeBnt)
         removeBnt.clicked.connect(self.onRemoveBntClicked)
 
+        barsGeneratorBnt = QPushButton("Bars Generator")
+        bntvbox.addWidget(barsGeneratorBnt)
+        barsGeneratorBnt.clicked.connect(self.onBarsGeneratorBntClicked)
+
         self.layout.addLayout(lvbox)
         self.layout.addLayout(bntvbox)
         self.setLayout(self.layout)
@@ -341,3 +345,6 @@ class MarketTabWidget(QWidget):
             self.kdb.remove_symbol_quotes(symbol)
 
         self.symbolListWidget.takeItem(self.symbolListWidget.row(item))
+
+    def onBarsGeneratorBntClicked(self):
+        pass
