@@ -1,5 +1,5 @@
 from collections import OrderedDict
-
+import math
 
 class Symbol(object):
     def __init__(
@@ -22,6 +22,10 @@ class Symbol(object):
             max_vol=self.max_vol,
             vol_step=self.vol_step
         )
+
+    @property
+    def digits(self):
+        return int(round(math.log10(1 / self.point)))
 
     @classmethod
     def from_dict(self, d):

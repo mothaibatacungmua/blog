@@ -3,6 +3,7 @@ from collections import namedtuple
 from typing import List, Union
 from datetime import datetime
 import pandas as pd
+from pandas import Timestamp
 from fxqu4nt.market.symbol import Symbol
 from fxqu4nt.market.kdb import QuotesDB
 from fxqu4nt.market.constant import PriceType
@@ -13,27 +14,31 @@ OHLC = namedtuple('OHLC', ['Open', 'High', 'Low', 'Close', 'Volume', 'Start', 'E
 
 
 class BarBase(ABC):
-    @abstractmethod
-    def fetch(self, sdt, edt, price_type, **kwargs):
+    def fetch(self, sdt, edt):
         pass
+
+    def fisrt_quote_date(self):
+        pdFirstDateTime: Timestamp = self.kdb.first_quote_date(self.symbol)
+        firstDateTime = pdFirstDateTime.to_pydatetime()
+        return firstDateTime
 
 
 class TickBar(BarBase):
-    def __init__(self, kdb: QuotesDB, symbol:[str, Symbol]):
+    def __init__(self, kdb: QuotesDB, symbol:[str, Symbol], price_type=PriceType.Ask, step_size=50):
         self.kdb = kdb
         self.q = self.kdb.q
         self.symbol = symbol
+        self.price_type = price_type
+        self.step_size = step_size
         self.logger = create_logger(self.__class__.__name__)
 
-    def fetch(self, sdt, edt, price_type: PriceType = PriceType.Ask, **kwargs) -> Union[pd.DataFrame, List['OHLC']]:
+    def fetch(self, sdt, edt, pandas=False) -> Union[pd.DataFrame, List['OHLC']]:
         tbn = self.kdb.quote_table_name(self.symbol)
         qfmt = ".tickbar.makeBars[{tbn};`{price_type};{step_size};{sdt};{edt}]"
-        step_size = kwargs["step_size"]
-        pandas = kwargs.get("pandas", False)
         try:
             query = qfmt.format(tbn=tbn,
-                                price_type=price_type.name,
-                                step_size=str(step_size),
+                                price_type=self.price_type.name,
+                                step_size=str(self.step_size),
                                 sdt=q_dt_str(sdt), edt=q_dt_str(edt))
             result = self.q(query, pandas=True)
             self.logger.debug("Execute query: %s" % query)
@@ -46,5 +51,5 @@ class TickBar(BarBase):
             ]
             return result
         except Exception as e:
-            self.logger.error("Fetch tick bar with step size:%d error: %s" % (step_size, str(e)))
+            self.logger.error("Fetch tick bar with step size:%d error: %s" % (self.step_size, str(e)))
         return []

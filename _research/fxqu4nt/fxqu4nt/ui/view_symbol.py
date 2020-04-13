@@ -28,27 +28,24 @@ class ViewSymbol(QDialog):
         self.adjustSize()
         self.kdb = get_db()
         self.symbol = symbol
-        self.tickBarGen = TickBar(kdb=self.kdb, symbol=self.symbol)
+        self.barFeed = TickBar(kdb=self.kdb, symbol=self.symbol)
         self.defaultSettings = self.createDefaultSettings()
         self.currentSettings = deepcopy(self.defaultSettings)
         self.startDate = self.currentSettings.startDate
         self.endDate = self.startDate + timedelta(days=5)
 
         self.widgetBox = dict()
-        self.createLayout()
 
         desktop = QApplication.desktop()
         res: QRect = desktop.screenGeometry()
         self.desktopWidth = res.getCoords()[2]
         self.desktopHeight = res.getCoords()[3]
 
-        self.parentWidget = parent
         self.adjustedWidth = int(self.desktopWidth * 0.75)
         self.adjustedHeight = int(self.desktopHeight * 0.666)
-        self.resize(self.adjustedWidth, self.adjustedHeight)
 
-        defaultBars = self.getBars(self.startDate, self.endDate, TICK_BAR)
-        self.chartWidget.draw(defaultBars, computedWidth=self.adjustedWidth - 225)
+        self.createLayout()
+        self.resize(self.adjustedWidth, self.adjustedHeight)
 
     def createDefaultSettings(self):
         pdFirstDateTime: Timestamp = self.kdb.first_quote_date(self.symbol)
@@ -109,8 +106,10 @@ class ViewSymbol(QDialog):
         self.chartWidget = CandleSticksWidget(
             parent=self,
             symbol=self.symbol,
-            rScrollCallback=self.rightScrollCallback,
-            lScrollCallback=self.leftScrollCallback)
+            barFeed=self.barFeed,
+            startDate=self.startDate,
+            endDate=self.endDate,
+            initWidth=self.adjustedWidth-225)
 
         layout.addWidget(settingGroup)
         layout.addWidget(self.chartWidget)
