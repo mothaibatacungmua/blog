@@ -16,5 +16,6 @@ setup(
         csv_tick_split=fxqu4nt.cli.commands.csv_tick_file_command:csv_split
         csv_tick_head=fxqu4nt.cli.commands.csv_tick_file_command:csv_head
         csv_tick_tail=fxqu4nt.cli.commands.csv_tick_file_command:csv_tail
+        csv_fix_date=fxqu4nt.cli.commands.csv_tick_file_command:csv_fix_date
     '''
 )

@@ -1,8 +1,11 @@
 import os
 import mmap
-from datetime import datetime
+from datetime import datetime, timedelta
 from fxqu4nt.logger import create_logger
 import time
+import tempfile
+import shutil
+
 
 MAX_BYTES_LINE = 256
 CHUNK = mmap.ALLOCATIONGRANULARITY*10
@@ -12,10 +15,53 @@ class CsvTickFile(object):
     def __init__(self, fpath):
         self.logger = create_logger(self.__class__.__name__, 'info')
         self.fpath = fpath
-        fobj = open(fpath, 'rb')
+        self.get_size()
+
+    def get_size(self):
+        fobj = open(self.fpath, 'rb')
         fobj.seek(0, os.SEEK_END)
         self.fsize = fobj.tell()
         fobj.close()
+
+    def fix_date(self):
+        temp_name = next(tempfile._get_candidate_names())
+        pdir = os.path.dirname(self.fpath)
+        temp_path = os.path.join(pdir, temp_name)
+        fwrite = open(temp_path, "w")
+        with open(self.fpath, 'rb') as fobj:
+            buff = fobj.read(1024*1024*16) # 16Mb
+            remainder = b''
+            lidx = buff.rfind(b'\n')
+            if lidx < len(buff)-1:
+                remainder = buff[lidx+1:]
+            buff = buff[:lidx]
+            first = True
+            while not buff:
+                lines = [l.decode('utf-8') for l in buff.split(b'\n')]
+                wbuff = []
+                for line in lines:
+                    dt = self._parse_time(line)
+                    while dt.day >= 5:
+                        dt = dt - timedelta(seconds=3600*24)
+                    patch_line = line.split(",")
+                    patch_line[0] = dt.strftime("%Y%m%d %H:%M:%S.%f")
+                    wbuff.append(",".join(patch_line))
+                if first:
+                    fwrite.write("\n".join(wbuff))
+                    first = False
+                else:
+                    fwrite.write("\n".join(wbuff) + "\n")
+
+                buff = remainder + fobj.read(1024 * 1024 * 16)  # 16Mb
+                lidx = buff.rfind(b'\n')
+                remainder = b''
+                if lidx < len(buff) - 1:
+                    remainder = buff[lidx + 1:]
+                buff = buff[:lidx]
+
+        fwrite.close()
+        shutil.move(temp_path, self.fpath)
+        self.get_size()
 
     def head(self, n):
         n = int(n)

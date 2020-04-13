@@ -23,3 +23,11 @@ def csv_head(file, lines):
 def csv_tail(file, lines):
     csv_tick = CsvTickFile(file)
     click.echo(csv_tick.tail(lines))
+
+@click.command()
+@click.option('--file', help="Input .csv file")
+def csv_fix_date(file):
+    click.echo("Fixing incorrect datetime")
+    csv_tick = CsvTickFile(file)
+    csv_tick.fix_date()
+    click.echo("Done!")
