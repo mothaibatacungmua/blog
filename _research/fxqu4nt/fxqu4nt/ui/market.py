@@ -293,7 +293,7 @@ class SymbolListWidget(QListWidget):
         pass
 
 
-class MarketTabWidget(QWidget):
+class MarketWidget(QWidget):
     """ Widget display list imported symbols """
     def __init__(self, parent=None):
         QWidget.__init__(self)

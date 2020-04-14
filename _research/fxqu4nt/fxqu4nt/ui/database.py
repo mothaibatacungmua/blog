@@ -6,17 +6,18 @@ from fxqu4nt.settings import save_mcnf, get_mcnf
 from fxqu4nt.market.kdb import get_db
 
 
-class DatabaseTabWidget(QWidget):
+class DatabaseDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__()
         self.parent = parent
-
+        self.setModal(True)
         self.cnf = get_mcnf()
         if self.cnf is None:
             self.cnf = {}
         self.createLayout()
 
     def createLayout(self):
+        self.setWindowTitle("Kdb+/Q Server Settings")
         self.layout = QVBoxLayout()
 
         settingLayout = QFormLayout()
