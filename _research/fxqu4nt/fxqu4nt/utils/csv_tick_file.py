@@ -23,25 +23,32 @@ class CsvTickFile(object):
         self.fsize = fobj.tell()
         fobj.close()
 
-    def fix_date(self):
+    def fix_date(self, cbfn=None):
+        bufflen = 1024*1024*2
         temp_name = next(tempfile._get_candidate_names())
         pdir = os.path.dirname(self.fpath)
         temp_path = os.path.join(pdir, temp_name)
         fwrite = open(temp_path, "w")
         with open(self.fpath, 'rb') as fobj:
-            buff = fobj.read(1024*1024*16) # 16Mb
+            buff = fobj.read(bufflen) # 16Mb
             remainder = b''
             lidx = buff.rfind(b'\n')
-            if lidx < len(buff)-1:
+            if lidx < len(buff)-1 and lidx >= 0:
                 remainder = buff[lidx+1:]
-            buff = buff[:lidx]
+                buff = buff[:lidx]
             first = True
-            while not buff:
+            while len(buff):
                 lines = [l.decode('utf-8') for l in buff.split(b'\n')]
                 wbuff = []
                 for line in lines:
+                    line = line.strip()
+                    if len(line) == 0:
+                        continue
+                    if line.startswith("DateTime"):
+                        fwrite.write(line + "\n")
+                        continue
                     dt = self._parse_time(line)
-                    while dt.day >= 5:
+                    while dt.weekday() >= 5:
                         dt = dt - timedelta(seconds=3600*24)
                     patch_line = line.split(",")
                     patch_line[0] = dt.strftime("%Y%m%d %H:%M:%S.%f")
@@ -51,13 +58,14 @@ class CsvTickFile(object):
                     first = False
                 else:
                     fwrite.write("\n".join(wbuff) + "\n")
-
-                buff = remainder + fobj.read(1024 * 1024 * 16)  # 16Mb
+                fwrite.flush()
+                if not cbfn is None: cbfn(fobj) # callback to track progress
+                buff = remainder + fobj.read(bufflen)  # 16Mb
                 lidx = buff.rfind(b'\n')
                 remainder = b''
-                if lidx < len(buff) - 1:
+                if lidx < len(buff) - 1 and lidx >= 0:
                     remainder = buff[lidx + 1:]
-                buff = buff[:lidx]
+                    buff = buff[:lidx]
 
         fwrite.close()
         shutil.move(temp_path, self.fpath)

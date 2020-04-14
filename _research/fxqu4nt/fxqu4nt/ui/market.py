@@ -296,7 +296,7 @@ class SymbolListWidget(QListWidget):
 class MarketWidget(QWidget):
     """ Widget display list imported symbols """
     def __init__(self, parent=None):
-        QWidget.__init__(self)
+        QWidget.__init__(self, parent)
         self.parent = parent
         self.kdb = get_db()
         self.createLayout()

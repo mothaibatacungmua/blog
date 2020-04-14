@@ -5,6 +5,7 @@ from PyQt5.QtCore import *
 from PyQt5 import QtGui
 
 from fxqu4nt.ui.widget import MarketWidget, DatabaseDialog
+from fxqu4nt.ui.tools import CsvPatchDialog
 from fxqu4nt.settings import PACKAGE_NAME, VERSION, get_all_q_script_paths, get_all_q_utils_paths
 from fxqu4nt.market.kdb import get_db
 from fxqu4nt.logger import create_logger
@@ -50,13 +51,16 @@ class MainWindow(QMainWindow):
         database = QAction('&Database', self)
         database.triggered.connect(self.onDatabase)
         fileMenu.addAction(database)
+        exit_ = QAction('E&xit', self)
+        exit_.triggered.connect(self.close)
+        fileMenu.addAction(exit_)
 
         csvPatch = QAction('&Patch CSV', self)
         csvPatch.triggered.connect(self.onCsvPatch)
         toolsMenu.addAction(csvPatch)
 
     def onCsvPatch(self):
-        pass
+        CsvPatchDialog(self).exec_()
 
     def onMarket(self):
         self.centralWidget.setCurrentWidget(self.marketWidget)

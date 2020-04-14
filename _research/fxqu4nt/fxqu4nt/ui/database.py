@@ -8,7 +8,7 @@ from fxqu4nt.market.kdb import get_db
 
 class DatabaseDialog(QDialog):
     def __init__(self, parent=None):
-        super().__init__()
+        super().__init__(parent)
         self.parent = parent
         self.setModal(True)
         self.cnf = get_mcnf()
