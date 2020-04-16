@@ -162,8 +162,6 @@ class BarGenDialog(QDialog):
         gridLayout.addWidget(cancelBnt, 2, 2)
         gridLayout.addItem(rightSpacer, 2, 3)
 
-
-
         self.layout = gridLayout
         self.setLayout(self.layout)
 
