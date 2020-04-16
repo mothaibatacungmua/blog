@@ -13,9 +13,11 @@ weeks: {[st; et] / generate
 isPathExist:{[d] not (() ~ key hsym`$d)} / check a file path exist
 
 / db common utils
-stb:{[d;tbn;zpt] 
+stb:{[d;tbn;asyn;zpt] 
     / upsert a table to a directory by date
     sd:(d,"/",string zpt[0]),tbn;
     $[isPathExist[sd];(hsym`$sd) upsert zpt[1];(hsym`$sd) set .Q.en[hsym`$d;zpt[1]]];
-    neg[.z.w](enlist[`processed]! enlist string zpt[0]);}
+    $[asyn;neg[.z.w](enlist[`processed]! enlist string zpt[0]);]}
+fid: {[tb] .Q.ind[tb; enlist[0]][`date][0]} / get first date
+lad: {[tb] lidx: count select from tb; .Q.ind[tb; enlist[lidx-1]][`date][0]}
 \d .
