@@ -239,6 +239,15 @@ class QuotesDB(object):
         except Exception as e:
             self.logger.error("Add tick data for symbol %s error:%s" % (name, str(e)))
 
+    def async_gen_tickbar(self,**kwargs):
+        pass
+
+    def async_gen_tickvolbar(self,**kwargs):
+        pass
+
+    def async_gen_timebar(self,**kwargs):
+        pass
+
     def get_symbols(self):
         try:
             result = self.q('SymMeta', pandas=True)

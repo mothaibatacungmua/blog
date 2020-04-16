@@ -5,13 +5,59 @@ from threading import Event
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 
+from qpython.qconnection import MessageType
+from qpython.qcollection import QDictionary
+
 from fxqu4nt.market.symbol import Symbol
+from fxqu4nt.logger import create_logger
 
 TICK_BAR = "Tick Bar"
 TICK_VOLUME_BAR = "Tick Volume Bar"
 TIME_BAR = "Time Bar"
 BAR_TYPES = [TICK_BAR, TICK_VOLUME_BAR, TIME_BAR]
 TIMEFRAMES = ["M1", "M2", "M3", "M4", "M5", "M6", "M10", "M12", "M15", "M20", "M30", "H1", "H2", "H3", "H4", "H6", "H8", "H12", "Daily", "Weekly"]
+
+
+class BarGenListerner(QRunnable):
+    def __init__(self, setTextFn, enableCloseFn, q=None):
+        super(BarGenListerner, self).__init__()
+        self.logger = create_logger(self.__class__.__name__)
+        self._stopper = Event()
+        self.q = q
+        self.setTextFn = setTextFn
+        self.enableCloseFn = enableCloseFn
+
+    def stop(self):
+        self._stopper.set()
+
+    def stopped(self):
+        return self._stopper.isSet()
+
+    @pyqtSlot()
+    def run(self):
+        prev_date = ""
+        first_date = None
+
+        while not self.stopped():
+            message = self.q.receive(data_only=False, raw=False)
+            self.setTextFn("Importing " + self.file + "...")
+            if message.type != MessageType.ASYNC:
+                continue
+
+            if isinstance(message.data, bytes):
+                if message.data == b'TASK_DONE':
+                    last_date = prev_date
+                    self.setTextFn("Imported quotes data from %s to %s" % (first_date, last_date))
+                    self.enableCloseFn()
+                    self.stop()
+                    continue
+            if isinstance(message.data, QDictionary):
+                next_date = message.data[b'processed'].decode("utf-8").strip()
+                if len(next_date):
+                    if next_date != prev_date:
+                        prev_date = next_date
+                        if first_date is None:
+                            first_date = prev_date
 
 
 class TickBarSettings(QWidget):
@@ -71,6 +117,13 @@ class BarGenDialog(QDialog):
         self.createLayout()
 
     def createLayout(self):
+        self.setWindowFlags(
+            Qt.Window |
+            Qt.CustomizeWindowHint |
+            Qt.WindowTitleHint |
+            Qt.WindowStaysOnTopHint)
+        # self.setWindowFlag(Qt.WindowContextHelpButtonHint, False)
+        # self.setWindowFlag(Qt.WindowCloseButtonHint, False)
         self.setWindowTitle(self.symbol.name +" Bar Generator")
         self.barTypesCombo = QComboBox()
 
@@ -96,15 +149,20 @@ class BarGenDialog(QDialog):
 
         gridLayout = QGridLayout()
         gridLayout.addWidget(settingGroup, 0, 0, 1, 4)
+        self.statusLbl = QLabel("Status:")
+        gridLayout.addWidget(self.statusLbl, 1, 0, 1, 4)
+        self.statusLbl.hide()
         leftSpacer = QSpacerItem(50, 50, QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
         rightSpacer = QSpacerItem(50, 50, QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
-        gridLayout.addItem(leftSpacer, 1, 0)
+        gridLayout.addItem(leftSpacer, 2, 0)
         genBnt = QPushButton("Generate")
         cancelBnt = QPushButton("Cancel")
         cancelBnt.clicked.connect(self.onCancelBntClick)
-        gridLayout.addWidget(genBnt, 1, 1)
-        gridLayout.addWidget(cancelBnt, 1, 2)
-        gridLayout.addItem(rightSpacer, 1, 3)
+        gridLayout.addWidget(genBnt, 2, 1)
+        gridLayout.addWidget(cancelBnt, 2, 2)
+        gridLayout.addItem(rightSpacer, 2, 3)
+
+
 
         self.layout = gridLayout
         self.setLayout(self.layout)
