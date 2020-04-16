@@ -36,7 +36,6 @@ class CsvTickFile(object):
             if lidx < len(buff)-1 and lidx >= 0:
                 remainder = buff[lidx+1:]
                 buff = buff[:lidx]
-            first = True
             while len(buff):
                 lines = [l.decode('utf-8') for l in buff.split(b'\n')]
                 wbuff = []
@@ -53,11 +52,8 @@ class CsvTickFile(object):
                     patch_line = line.split(",")
                     patch_line[0] = dt.strftime("%Y%m%d %H:%M:%S.%f")
                     wbuff.append(",".join(patch_line))
-                if first:
-                    fwrite.write("\n".join(wbuff))
-                    first = False
-                else:
-                    fwrite.write("\n".join(wbuff) + "\n")
+
+                fwrite.write("\n".join(wbuff) + "\n")
                 fwrite.flush()
                 if not cbfn is None: cbfn(fobj) # callback to track progress
                 buff = remainder + fobj.read(bufflen)  # 16Mb

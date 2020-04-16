@@ -8,6 +8,7 @@ ren:{system$[WIN;"move ";"mv "],pth[x]," ",pth y}
 here:{hsym`$system$[WIN;"cd";"pwd"]}
 \d .
 
+\d .dbmt
 add1col:{[tabledir;colname;defaultvalue]
  if[not colname in ac:allcols tabledir;
   stdout"adding column ",(string colname)," (type ",(string type defaultvalue),") to `",string tabledir;
@@ -127,7 +128,7 @@ addtable:{[dbdir;tablename;table] / addtable[`:.;`trade;([]price...)]
 
 rentable:{[dbdir;old;new] / rentable[`:.;`trade;`transactions]
  ren1table'[allpaths[dbdir;old];allpaths[dbdir;new]];}
-
+\d .
 \
 test with https://github.com/KxSystems/kdb/blob/master/tq.q (sample taq database)
 
