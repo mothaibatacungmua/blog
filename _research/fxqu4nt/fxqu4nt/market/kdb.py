@@ -29,24 +29,32 @@ class QuotesDB(object):
         :param port: Port to connect to q server
         :param storage: Local storage symbol data
         """
-        self.host = host
-        self.port = port
-        self.storage = storage
-        self.logger = create_logger(self.__class__.__name__,  level='debug')
-        self.q: qconnection.QConnection = qconnection.QConnection(host=host, port=port)
-        self.q.open()
-        time.sleep(0.1)
-        self.changed = False
-        if self.q.is_connected():
-            self.logger.info("Connected to kdb+ server. IPC version: %s" % self.q.protocol_version)
+        self.logger = create_logger(self.__class__.__name__, level='debug')
+        self.q = None
+        if host is not None and port is not None:
+            self.host = host
+            self.port = port
+            self.storage = storage
+            self.q: qconnection.QConnection = qconnection.QConnection(host=host, port=port)
+            self.q.open()
+            time.sleep(0.1)
+            self.changed = False
+            if self.q.is_connected():
+                self.logger.info("Connected to kdb+ server. IPC version: %s" % self.q.protocol_version)
+            else:
+                self.logger.error("Connect to kdb+ server fail!")
         else:
-            self.logger.error("Connect to kdb+ server fail!")
+            self.logger.warn("Database not initialized!")
 
     def clone(self):
+        if self.q is None:
+            return QuotesDB(host=None, port=None, storage=None)
         return QuotesDB(host=self.host, port=self.port, storage=self.storage)
 
     def test(self):
         """ Test connect to q server """
+        if self.q is None:
+            return False
         try:
             data = self.q('`int$ til 10')
             if data == list(range(10)):
@@ -62,6 +70,8 @@ class QuotesDB(object):
 
     def close(self):
         """ Close q connection """
+        if self.q is None:
+            return
         self.q.close()
 
     def quote_table_name(self, symbol: [str, Symbol]):
@@ -82,6 +92,8 @@ class QuotesDB(object):
         :param symbol: str or Symbol instance
         :return: Count of quotes
         """
+        if self.q is None:
+            return None
         qfmt = "count select from {tbn}"
         try:
             query = qfmt.format(tbn=self.quote_table_name(symbol))
@@ -102,6 +114,8 @@ class QuotesDB(object):
         :param symbol: str or Symbol instance
         :return: The first quote row
         """
+        if self.q is None:
+            return None
         qfmt = ".Q.ind[{tbn};enlist[0]]"
         try:
             query = qfmt.format(tbn=self.quote_table_name(symbol))
@@ -122,6 +136,8 @@ class QuotesDB(object):
         :param symbol: str or Symbol instance
         :return: The last quote row
         """
+        if self.q is None:
+            return None
         qfmt = ".Q.ind[{tbn};{last}]"
         try:
             query = qfmt.format(tbn=self.quote_table_name(symbol), last=self.count_quote_row(symbol))
@@ -153,6 +169,8 @@ class QuotesDB(object):
         :param symbol: Symbol to add
         :return: Boolean
         """
+        if self.q is None:
+            return False
         sym_meta = self.get_symbols()
         if sym_meta is None:
             if not self.create_empty_sym_meta():
@@ -189,6 +207,8 @@ class QuotesDB(object):
         :param tick_data: Csv tick data path
         :return: Boolean
         """
+        if self.q is None:
+            return False
         tick_path = normalize_path(tick_data)
         if isinstance(symbol, Symbol):
             name = symbol.name
@@ -249,6 +269,8 @@ class QuotesDB(object):
         pass
 
     def get_symbols(self):
+        if self.q is None:
+            return None
         try:
             result = self.q('SymMeta', pandas=True)
         except qpython.qtype.QException:
@@ -266,6 +288,8 @@ class QuotesDB(object):
         raise NotImplementedError
 
     def is_symbol_exist(self, symbol: str):
+        if self.q is None:
+            return False
         query = "select from {table} where name=`{name}".format(table=SYMBOL_META_TABLE, name=symbol)
         try:
             self._debug(query)
@@ -277,6 +301,8 @@ class QuotesDB(object):
             return False
 
     def create_empty_sym_meta(self):
+        if self.q is None:
+            return False
         query = "{table}:([name: ()] point:(); min_vol:(); max_vol:(); vol_step:())".format(table=SYMBOL_META_TABLE)
         try:
             self._debug(query)
@@ -294,6 +320,8 @@ class QuotesDB(object):
         return normalize_path(os.path.join(self.storage, SYMBOL_META_TABLE_FILE))
 
     def save_meta_table(self):
+        if self.q is None:
+            return False
         meta_path = self._get_meta_table_path()
         query = "`:{path} set {table}".format(path=meta_path, table=SYMBOL_META_TABLE)
         try:
@@ -305,6 +333,8 @@ class QuotesDB(object):
         return True
 
     def restore_meta_table(self):
+        if self.q is None:
+            return None
         meta_path = self._get_meta_table_path()
         if os.path.exists(meta_path):
             query = "{table}:(get `:{path})".format(table=SYMBOL_META_TABLE, path=meta_path)
@@ -317,6 +347,8 @@ class QuotesDB(object):
         return None
 
     def save_symbol_quotes(self):
+        if self.q is None:
+            return
         symbol_meta = self.get_symbols()
         qfmt = "$[`{var} in key`.;`:{path} set {var};]"
         for sym_name, row in symbol_meta.iterrows():
@@ -335,6 +367,8 @@ class QuotesDB(object):
                     self.logger.error("Save tick data for symbol %s table error:%s" % (sym_name, str(e)))
 
     def restore_symbol_quotes(self):
+        if self.q is None:
+            return
         symbol_meta = self.get_symbols()
         qfmt = "\l {path}"
         for sym_name, row in symbol_meta.iterrows():
@@ -370,6 +404,8 @@ class QuotesDB(object):
         :param symbol: Symbol to remove
         :return: Boolean
         """
+        if self.q is None:
+            return False
         self.changed = True
         if isinstance(symbol, Symbol):
             symbol = symbol.name
@@ -390,6 +426,8 @@ class QuotesDB(object):
         :param symbol: Symbol to remove
         :return:
         """
+        if self.q is None:
+            return
         self.changed = True
         if isinstance(symbol, Symbol):
             symbol = symbol.name
@@ -426,6 +464,8 @@ class QuotesDB(object):
         :param script_path: q script path
         :return:
         """
+        if self.q is None:
+            return
         script_path = normalize_path(script_path)
         qfmt = "\\l {path}"
 
@@ -446,6 +486,8 @@ def get_db(host=None, port=None, storage=None) -> QuotesDB:
     if gquotedb is None:
         if host is None or port is None:
             cnf = get_mcnf()
+            if cnf is None:
+                return QuotesDB(host=None, port=None, storage=None)
             host = cnf["host"]
             port = int(cnf["port"])
             storage = cnf["storage"]

@@ -120,8 +120,9 @@ class DatabaseDialog(QDialog):
 
     def refresh(self):
         self.cnf = get_mcnf()
-        self.hostLineEdit.setText(self.cnf["host"])
-        self.portLineEdit.setText(self.cnf["port"])
-        self.storageLineEdit.setText(self.cnf["storage"])
+        if self.cnf:
+            self.hostLineEdit.setText(self.cnf["host"])
+            self.portLineEdit.setText(self.cnf["port"])
+            self.storageLineEdit.setText(self.cnf["storage"])
 
         self.bntSave.setEnabled(False)

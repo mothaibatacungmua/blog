@@ -21,5 +21,6 @@ def create_logger(name, level='info'):
     ch.setFormatter(formatter)
     # add ch to logger
     logger.addHandler(ch)
+    logger.propagate = False
 
     return logger

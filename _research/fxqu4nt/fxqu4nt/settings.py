@@ -1,5 +1,6 @@
 import os
 import yaml
+import platform
 from fxqu4nt.utils.common import normalize_path
 PACKAGE_NAME = "FxQu4nt"
 VERSION = "0.0.1"
@@ -12,7 +13,11 @@ def get_project_dir():
 
 
 def get_appdata_dir():
-    return os.path.join(os.path.expandvars("%LOCALAPPDATA%"), "fxqu4nt")
+    if platform.system() == "Windows":
+        return os.path.join(os.path.expandvars("%LOCALAPPDATA%"), "fxqu4nt")
+
+    if platform.system() == "Darwin" or platform.system() == "Linux":
+        return os.path.join(os.path.expandvars("$HOME"), ".fxqu4nt")
 
 
 def get_q_dir():

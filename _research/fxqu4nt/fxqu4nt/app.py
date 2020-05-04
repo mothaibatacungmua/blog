@@ -17,9 +17,10 @@ class MainWindow(QMainWindow):
 
     def __init__(self, parent=None):
         self.logger = create_logger(self.__class__.__name__, "info")
-        self.kdb = get_db()
-        self.kdb.restore_all()
         super().__init__(parent)
+        self.kdb = get_db()
+        if self.kdb:
+            self.kdb.restore_all()
 
         scriptDir = os.path.dirname(os.path.realpath(__file__))
         iconPath = os.path.join(scriptDir, "resources/icon.ico")
@@ -36,6 +37,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(PACKAGE_NAME + " " + VERSION)
         self.resize(*self.size)
         self._moveToCenter()
+
         self._loadQScripts()
 
         self.initUi()

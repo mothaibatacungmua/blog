@@ -9,7 +9,8 @@ setup(
         'qpython==2.0.0',
         'PyQt5==5.13.0',
         'pandas==0.25.3',
-        'pyqtgraph==0.10.0'
+        'pyqtgraph==0.10.0',
+        'pyyaml'
     ],
     entry_points='''
         [console_scripts]
