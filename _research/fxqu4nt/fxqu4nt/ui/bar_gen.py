@@ -43,14 +43,14 @@ class BarGenListerner(QRunnable):
 
         while not self.stopped():
             message = self.q.receive(data_only=False, raw=False)
-            self.setTextFn("Importing " + self.file + "...")
+            self.setTextFn("Generating...")
             if message.type != MessageType.ASYNC:
                 continue
 
             if isinstance(message.data, bytes):
                 if message.data == b'TASK_DONE':
                     last_date = prev_date
-                    self.setTextFn("Imported quotes data from %s to %s" % (first_date, last_date))
+                    self.setTextFn("Generated quotes data from %s to %s" % (first_date, last_date))
                     self.enableCloseFn()
                     self.stop()
                     continue
@@ -78,7 +78,7 @@ class TickBarSettings(QWidget):
 
     def getSettings(self):
         settings = dict()
-        settings["bar_size"] = int(self.barSizeEdit.text())
+        settings["barSize"] = int(self.barSizeEdit.text())
 
         return Namespace(**settings)
 
@@ -98,7 +98,7 @@ class TickVolumeBarSettings(QWidget):
 
     def getSettings(self):
         settings = dict()
-        settings["vol_size"] = self.volumeSizeEdit.text()
+        settings["volSize"] = self.volumeSizeEdit.text()
         return Namespace(**settings)
 
 
@@ -113,7 +113,6 @@ class TimeBarSettings(QWidget):
         self.timeframes = QComboBox()
         for tf in TIMEFRAMES:
             self.timeframes.addItem(tf)
-        self.timeframes.currentIndexChanged.connect(self.onIndexChanged)
         formBox.addRow(QLabel("Timeframes:"), self.timeframes)
         self.layout = formBox
         self.setLayout(self.layout)
@@ -195,7 +194,7 @@ class BarGenDialog(QDialog):
         tickBarGen = TickBar(
             kdb=get_db(),
             symbol=self.symbol,
-            step_size=settings.step_size)
+            step_size=settings.barSize)
         tickBarGen.async_generate()
 
     def setTextFn(self, text):
