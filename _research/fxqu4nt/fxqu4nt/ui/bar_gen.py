@@ -156,6 +156,7 @@ class BarGenDialog(QDialog):
         rightSpacer = QSpacerItem(50, 50, QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
         gridLayout.addItem(leftSpacer, 2, 0)
         genBnt = QPushButton("Generate")
+        genBnt.clicked.connect(self.onGenerateBntClick)
         cancelBnt = QPushButton("Cancel")
         cancelBnt.clicked.connect(self.onCancelBntClick)
         gridLayout.addWidget(genBnt, 2, 1)
@@ -164,6 +165,9 @@ class BarGenDialog(QDialog):
 
         self.layout = gridLayout
         self.setLayout(self.layout)
+
+    def onGenerateBntClick(self):
+        pass
 
     def onCancelBntClick(self):
         self.close()
