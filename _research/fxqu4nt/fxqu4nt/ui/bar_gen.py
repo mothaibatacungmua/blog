@@ -1,6 +1,7 @@
 import os
 import re
 import time
+from argparse import Namespace
 from threading import Event
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
@@ -8,6 +9,8 @@ from PyQt5.QtCore import *
 from qpython.qconnection import MessageType
 from qpython.qcollection import QDictionary
 
+from fxqu4nt.market.kdb import get_db
+from fxqu4nt.market.bar import TickBar
 from fxqu4nt.market.symbol import Symbol
 from fxqu4nt.logger import create_logger
 
@@ -73,6 +76,13 @@ class TickBarSettings(QWidget):
         self.layout = formBox
         self.setLayout(self.layout)
 
+    def getSettings(self):
+        settings = dict()
+        settings["bar_size"] = int(self.barSizeEdit.text())
+
+        return Namespace(**settings)
+
+
 class TickVolumeBarSettings(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -85,6 +95,11 @@ class TickVolumeBarSettings(QWidget):
         formBox.addRow(QLabel("Volume size:"), self.volumeSizeEdit)
         self.layout = formBox
         self.setLayout(self.layout)
+
+    def getSettings(self):
+        settings = dict()
+        settings["vol_size"] = self.volumeSizeEdit.text()
+        return Namespace(**settings)
 
 
 class TimeBarSettings(QWidget):
@@ -103,8 +118,10 @@ class TimeBarSettings(QWidget):
         self.layout = formBox
         self.setLayout(self.layout)
 
-    def onIndexChanged(self, i):
-        print(self.timeframes.currentText())
+    def getSettings(self):
+        settings = dict()
+        settings["timeframe"] = self.timeframes.currentText()
+        return Namespace(**settings)
 
 
 class BarGenDialog(QDialog):
@@ -157,17 +174,37 @@ class BarGenDialog(QDialog):
         gridLayout.addItem(leftSpacer, 2, 0)
         genBnt = QPushButton("Generate")
         genBnt.clicked.connect(self.onGenerateBntClick)
-        cancelBnt = QPushButton("Cancel")
-        cancelBnt.clicked.connect(self.onCancelBntClick)
+        self.cancelBnt = QPushButton("Cancel")
+        self.cancelBnt.clicked.connect(self.onCancelBntClick)
         gridLayout.addWidget(genBnt, 2, 1)
-        gridLayout.addWidget(cancelBnt, 2, 2)
+        gridLayout.addWidget(self.cancelBnt, 2, 2)
         gridLayout.addItem(rightSpacer, 2, 3)
 
         self.layout = gridLayout
         self.setLayout(self.layout)
 
     def onGenerateBntClick(self):
-        pass
+        threadpool = QThreadPool()
+        self.cancelBnt.setEnabled(False)
+        self.statusLbl.setHidden(False)
+
+        worker = BarGenListerner(self.setTextFn, self.enableCloseFn, get_db().q)
+        threadpool.start(worker)
+
+        settings = self.tickbarSettings.getSettings()
+        tickBarGen = TickBar(
+            kdb=get_db(),
+            symbol=self.symbol,
+            step_size=settings.step_size)
+        tickBarGen.async_generate()
+
+    def setTextFn(self, text):
+        self.statusLbl.setText("Status: " + text)
+
+    def enableCloseFn(self):
+        self.cancelBnt.setEnabled(True)
+        self.statusLbl.setText("Status:")
+        self.statusLbl.hide()
 
     def onCancelBntClick(self):
         self.close()

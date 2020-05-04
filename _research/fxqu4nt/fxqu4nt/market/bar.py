@@ -53,18 +53,18 @@ class TickBar(BarBase):
             self.logger.error("Fetch tick bar with step size:%d error: %s" % (self.step_size, str(e)))
         return []
 
-    def async_generate(self, tick_size=50):
+    def async_generate(self):
         if isinstance(self.symbol, Symbol):
             name = self.symbol.name
         else:
             name = self.symbol
 
         symbol_path = self.kdb._get_symbol_path(name)
-        tbn = "GenTick{tick_size:05d}Bars{symbol}".format(tick_size=tick_size, symbol=name)
+        tbn = "GenTick{tick_size:05d}Bars{symbol}".format(tick_size=self.step_size, symbol=name)
         qtb = self.kdb.quote_table_name(self.symbol)
 
         try:
-            self.q.sendAsync('.tickbar.genBars', symbol_path, tbn, qtb, tick_size)
+            self.q.sendAsync('.tickbar.genBars', symbol_path, tbn, qtb, self.step_size)
             return symbol_path
         except Exception as e:
-            self.logger.error("Generate tick %d bars for symbol %s error:%s" % (tick_size, name, str(e)))
+            self.logger.error("Generate tick %d bars for symbol %s error:%s" % (self.step_size, name, str(e)))
