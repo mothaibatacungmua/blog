@@ -12,13 +12,12 @@ from fxqu4nt.settings import get_mcnf
 from fxqu4nt.utils.common import normalize_path
 
 TICK_SUFFIX = "zTick"
-M1_SUFFIX = "zM1"
 SYMBOL_META_TABLE = "SymMeta"
 SYMBOL_META_TABLE_FILE = "SymMeta.dat"
 SYMBOL_PREFIX = "Symbolz"
 SYMBOL_DIR = "Symbols"
 
-SUFFIXES = [TICK_SUFFIX, M1_SUFFIX]
+SUFFIXES = [TICK_SUFFIX]
 
 
 class QuotesDB(object):
@@ -258,15 +257,6 @@ class QuotesDB(object):
             return origin_dir
         except Exception as e:
             self.logger.error("Add tick data for symbol %s error:%s" % (name, str(e)))
-
-    def async_gen_tickbar(self,**kwargs):
-        pass
-
-    def async_gen_tickvolbar(self,**kwargs):
-        pass
-
-    def async_gen_timebar(self,**kwargs):
-        pass
 
     def get_symbols(self):
         if self.q is None:

@@ -17,7 +17,7 @@ dpt:{[d;tbn;t]
     p:?[;();();`Date]alld;
     tbyd: (enlist')(?[t;;0b;()]')(enlist')((=;($;enlist `date;`Start);)')p; / table by date
     (.cm.stb[d;tbn;1b]')p,'tbyd} 
-genBars:{[d;tbn;qtb;sts] / directory, tableName, quoteTable, stepSize
+genBars:{[d;tbn;qtb;sts] / symbolPath, tableName, quoteTable, stepSize
     fdate: .cm.fid[qtb];
     ldate: .cm.lad[qtb];
     ws: .cm.weeks[fdate;ldate];
