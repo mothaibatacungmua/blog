@@ -10,7 +10,8 @@ setup(
         'PyQt5==5.13.0',
         'pandas==0.25.3',
         'pyqtgraph==0.10.0',
-        'pyyaml'
+        'pyyaml',
+        'nose2'
     ],
     entry_points='''
         [console_scripts]
