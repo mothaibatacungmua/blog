@@ -9,22 +9,23 @@ makeBars:{[ticktb;sts;bd;ed] /tableName, stepSize, beginDate, endDate, onMemory
     ost:offsetTicks[ticktb;bd]; / Get total ticks to bd, make offset
     ns:nsteps[sts;tot];
     sl:enlist[0] nextOff[;sts;tot;]/til ns;
-    tuol:sublist[(0;(count sl)-1);sl],'sublist[(1;count sl);sl]; 0N!tuol;
+    tuol:sublist[(0;(count sl)-1);sl],'sublist[(1;count sl);sl];
     / table in memory use select, table in disk use .Q.ind
     bfn:{[a;z;x] $[not .Q.qp[z];select[(a+x[0];(x[1] - x[0]))] from z;.Q.ind[z;a+x[0]+til (x[1]-x[0])]]}[ost;ticktb;];
-    bsl:(bfn')tuol; 0N!bsl;
+    bsl:(bfn')tuol;
     (uj/)bar each (bsl (where ({(count x) > 0}) each bsl))}
 dpt:{[d;tbn;async;t]
     alld:?[t;();1b;enlist[`Date]!enlist (`date$;`Start)]; / get all distinct start date
     p:?[;();();`Date]alld;
     tbyd: (enlist')(?[t;;0b;()]')(enlist')((=;($;enlist `date;`Start);)')p; / table by date
     (.cm.stb[d;tbn;async]')p,'tbyd;} 
-genBars:{[d;tbn;qtb;sts;async] / symbolPath, tableName, quoteTable, stepSize
+genBars:{[d;tbn;sqtb;sts;async] / symbolPath, tableName, quoteTable, stepSize
+    0N!d;
+    qtb: `.[sqtb];
     fdate: .cm.fid[qtb];
     ldate: .cm.lad[qtb];
     ws: .cm.weeks[fdate;ldate];
     sfw: {[ztb;xsts;x] makeBars[ztb;xsts;x[0];x[1]]}[qtb;sts;];
     (dpt[d;"/",tbn,"/";async;]')((sfw')ws);
-    system "l ",(d);
     $[async;neg[.z.w]("TASK_DONE");]}
 \d .

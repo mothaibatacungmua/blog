@@ -1,0 +1,3 @@
+PACKAGE_NAME = "FxQu4nt"
+VERSION = "0.0.1"
+APP_NAME = "fxqu4nt"

@@ -6,6 +6,7 @@ from threading import Event
 from qpython.qconnection import MessageType
 from qpython.qcollection import QDictionary
 
+from fxqu4nt.utils.common import get_tmp_dir
 from fxqu4nt.market.symbol import Symbol
 from fxqu4nt.logger import create_logger
 from fxqu4nt.market.kdb import get_db
@@ -52,6 +53,17 @@ class ImportTickListener(QRunnable):
                         prev_date = next_date
                         if first_date is None:
                             first_date = prev_date
+
+# https://www.learnpyqt.com/courses/concurrent-execution/multithreading-pyqt-applications-qthreadpool/
+# https://stackoverflow.com/questions/50930792/pyqt-multiple-qprocess-and-output
+class SplitCsvByMonth(QRunnable):
+    def __init__(self, file=None):
+        super(SplitCsvByMonth, self).__init__()
+        self.file = file
+
+    @pyqtSlot()
+    def run(self):
+        pass
 
 
 class DateProcessedDialog(QDialog):

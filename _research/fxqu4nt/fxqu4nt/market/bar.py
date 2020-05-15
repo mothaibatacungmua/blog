@@ -5,6 +5,9 @@ from typing import List, Union
 from datetime import datetime
 import pandas as pd
 from pandas import Timestamp
+import numpy as np
+
+
 from fxqu4nt.market.symbol import Symbol
 from fxqu4nt.market.kdb import QuotesDB
 from fxqu4nt.utils.common import q_dt_str
@@ -53,18 +56,38 @@ class TickBar(BarBase):
             self.logger.error("Fetch tick bar with step size:%d error: %s" % (self.step_size, str(e)))
         return []
 
+    def __repr__(self):
+        return "Tick %d Bar" % self.step_size
+
+    def exist(self):
+        if isinstance(self.symbol, Symbol):
+            name = self.symbol.name
+        else:
+            name = self.symbol
+
+        bar_path = self.kdb._get_symbol_path(name)
+        tbn = "GenTick{tick_size:05d}Bars{symbol}".format(tick_size=self.step_size, symbol=name)
+        bar_path = os.path.join(bar_path, tbn)
+
+        if os.path.exists(bar_path):
+            return True
+
+        return False
+
     def async_generate(self):
         if isinstance(self.symbol, Symbol):
             name = self.symbol.name
         else:
             name = self.symbol
 
-        symbol_path = self.kdb._get_symbol_path(name)
+        bar_path = self.kdb._get_symbol_path(name)
         tbn = "GenTick{tick_size:05d}Bars{symbol}".format(tick_size=self.step_size, symbol=name)
+        bar_path = os.path.join(bar_path, tbn)
         qtb = self.kdb.quote_table_name(self.symbol)
 
-        try:
-            self.q.sendAsync('.tickbar.genBars', symbol_path, tbn, qtb, self.step_size)
-            return symbol_path
-        except Exception as e:
-            self.logger.error("Generate tick %d bars for symbol %s error:%s" % (self.step_size, name, str(e)))
+        self.q.sendAsync('.tickbar.genBars',
+                         bar_path,
+                         tbn, np.bytes_(qtb.encode('utf-8')),
+                         np.int32(self.step_size),
+                         np.bool_(1)) # see q/tick_bar.q
+        return bar_path

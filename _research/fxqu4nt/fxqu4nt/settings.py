@@ -2,8 +2,7 @@ import os
 import yaml
 import platform
 from fxqu4nt.utils.common import normalize_path
-PACKAGE_NAME = "FxQu4nt"
-VERSION = "0.0.1"
+
 
 gmcnf = None
 

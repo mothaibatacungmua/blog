@@ -22,13 +22,14 @@ TIMEFRAMES = ["M1", "M2", "M3", "M4", "M5", "M6", "M10", "M12", "M15", "M20", "M
 
 
 class BarGenListerner(QRunnable):
-    def __init__(self, setTextFn, enableCloseFn, q=None):
+    def __init__(self, setTextFn, enableCloseFn, q=None, generator=None):
         super(BarGenListerner, self).__init__()
         self.logger = create_logger(self.__class__.__name__)
         self._stopper = Event()
         self.q = q
         self.setTextFn = setTextFn
         self.enableCloseFn = enableCloseFn
+        self.generator = generator
 
     def stop(self):
         self._stopper.set()
@@ -40,17 +41,16 @@ class BarGenListerner(QRunnable):
     def run(self):
         prev_date = ""
         first_date = None
-
         while not self.stopped():
-            message = self.q.receive(data_only=False, raw=False)
             self.setTextFn("Generating...")
+            message = self.q.receive(data_only=False, raw=False)
             if message.type != MessageType.ASYNC:
                 continue
 
             if isinstance(message.data, bytes):
                 if message.data == b'TASK_DONE':
                     last_date = prev_date
-                    self.setTextFn("Generated quotes data from %s to %s" % (first_date, last_date))
+                    self.setTextFn("Generated %s from %s to %s" % (str(self.generator), first_date, last_date))
                     self.enableCloseFn()
                     self.stop()
                     continue
@@ -129,7 +129,7 @@ class BarGenDialog(QDialog):
         self.parent = parent
         self.symbol = symbol
         self.setModal(True)
-
+        self.threadpool = QThreadPool()
         self.createLayout()
 
     def createLayout(self):
@@ -182,28 +182,33 @@ class BarGenDialog(QDialog):
         self.layout = gridLayout
         self.setLayout(self.layout)
 
+    def overwriteMsgBox(self):
+        pass
+
     def onGenerateBntClick(self):
-        threadpool = QThreadPool()
         self.cancelBnt.setEnabled(False)
         self.statusLbl.setHidden(False)
 
-        worker = BarGenListerner(self.setTextFn, self.enableCloseFn, get_db().q)
-        threadpool.start(worker)
+        if self.stackedWidget.currentWidget() == self.tickbarSettings:
+            settings = self.tickbarSettings.getSettings()
+            tickBarGen = TickBar(
+                kdb=get_db(),
+                symbol=self.symbol,
+                step_size=settings.barSize)
 
-        settings = self.tickbarSettings.getSettings()
-        tickBarGen = TickBar(
-            kdb=get_db(),
-            symbol=self.symbol,
-            step_size=settings.barSize)
-        tickBarGen.async_generate()
+            try:
+                tickBarGen.async_generate()
+                worker = BarGenListerner(self.setTextFn, self.enableCloseFn, get_db().q, tickBarGen)
+                self.threadpool.start(worker)
+            except Exception as e:
+                print(e)
+                pass
 
     def setTextFn(self, text):
         self.statusLbl.setText("Status: " + text)
 
     def enableCloseFn(self):
         self.cancelBnt.setEnabled(True)
-        self.statusLbl.setText("Status:")
-        self.statusLbl.hide()
 
     def onCancelBntClick(self):
         self.close()

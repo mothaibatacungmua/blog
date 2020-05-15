@@ -258,6 +258,16 @@ class QuotesDB(object):
         except Exception as e:
             self.logger.error("Add tick data for symbol %s error:%s" % (name, str(e)))
 
+    def load_quote_table(self, symbol: [str, Symbol]):
+        if isinstance(symbol, Symbol):
+            name = symbol.name
+        else:
+            name = symbol
+        sym_dir = os.path.join(self.storage, SYMBOL_DIR, name)
+        path = normalize_path(os.path.join(sym_dir, TICK_SUFFIX[1:]))
+        # TODO
+        return path
+
     def get_symbols(self):
         if self.q is None:
             return None
@@ -385,8 +395,7 @@ class QuotesDB(object):
     def restore_all(self):
         self.logger.info("Restore SymMeta table")
         if self.restore_meta_table():
-            self.logger.info("Restore Symbol quotes")
-            self.restore_symbol_quotes()
+            pass
 
     def remove_symbol(self, symbol: [Symbol, str]) -> bool:
         """ Remove symbol's meta data
