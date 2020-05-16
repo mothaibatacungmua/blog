@@ -121,15 +121,20 @@ def split_by_month(
     prev_offset = fobj.tell()
     header = head(csv_file, 1)
     line = fobj.readline()
+
     while line:
-        if fobj.tell() > offset_range[1]:
+        if fobj.tell() > (offset_range[1]+1):
             break
         line = line.strip()
+        if fobj.tell() == fsize:
+            if len(line):
+                month_lines.append(line)
+            break
         if len(line) == 0:
             line = fobj.readline()
             count += 1
             continue
-        if count == 0:
+        if count == 0 and offset_range[0] == 0:
             line = fobj.readline()
             count += 1
             continue
@@ -213,9 +218,13 @@ def split_by_year(
     prev_offset = fobj.tell()
     line = fobj.readline()
     while line:
-        if fobj.tell() > offset_range[1]:
+        if fobj.tell() > (offset_range[1] + 1):
             break
         line = line.strip()
+        if fobj.tell() == fsize:
+            if len(line):
+                year_lines.append(line)
+            break
         if len(line) == 0:
             line = fobj.readline()
             count += 1
@@ -311,24 +320,6 @@ def split(csv_file, mode, out_dir="."):
     if mode == "year": return split_by_year(csv_file, out_dir)
     if mode == "month": return split_by_month(csv_file, out_dir)
     logger.error("split() doesn't support mode `%s`" % mode)
-
-
-def _split_month_worker(csv_file, wid, offset_range):
-    tmp_dir = get_tmp_dir()
-    save_dir = os.path.join(tmp_dir, f"split_{wid}")
-    os.makedirs(save_dir)
-
-    split_by_month(csv_file, out_dir=save_dir, offset_range=offset_range, wid=wid)
-    return save_dir
-
-
-def _split_year_worker(csv_file, wid, offset_range):
-    tmp_dir = get_tmp_dir()
-    save_dir = os.path.join(tmp_dir, f"split_{wid}")
-    os.makedirs(save_dir)
-
-    split_by_year(csv_file, out_dir=save_dir, offset_range=offset_range, wid=wid)
-    return save_dir
 
 
 def sub_ranges(csv_file, nworkers=4):

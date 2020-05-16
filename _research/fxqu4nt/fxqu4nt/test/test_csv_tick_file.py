@@ -27,12 +27,7 @@ class TestCsvTickFile(unittest.TestCase):
         buff = tail(csv_file, n)
         self.assertEqual("\n".join(lines), buff)
 
-    def test_split_by_year(self):
-        tmp_dir = os.path.join(get_test_dir(), "tmp_split_year")
-        if not os.path.exists(tmp_dir):
-            os.makedirs(tmp_dir)
-        split_by_year(csv_file, tmp_dir, verbose=False)
-
+    def _test_by(self, csv_file, tmp_dir):
         _2010_year_lines = []
         _2011_year_lines = []
         with open(csv_file, "r") as fobj:
@@ -47,26 +42,30 @@ class TestCsvTickFile(unittest.TestCase):
         _2010_csv_file = os.path.join(tmp_dir, "2010.csv")
         _2011_csv_file = os.path.join(tmp_dir, "2011.csv")
         with open(_2010_csv_file, "r") as fobj:
-            _2010_year_lines_splitted = [x.strip() for x in fobj.readlines()[1:]]
+            _2010_year_lines_splitted = [x.strip() for x in fobj.readlines()[1:] if len(x.strip())]
         with open(_2011_csv_file, "r") as fobj:
-            _2011_year_lines_splitted = [x.strip() for x in fobj.readlines()[1:]]
+            _2011_year_lines_splitted = [x.strip() for x in fobj.readlines()[1:] if len(x.strip())]
 
         self.assertEqual(_2010_year_lines, _2010_year_lines_splitted)
         self.assertEqual(_2011_year_lines, _2011_year_lines_splitted)
-        shutil.rmtree(tmp_dir)
 
-    def test_split_by_month(self):
-        tmp_dir = os.path.join(get_test_dir(), "tmp_split_month")
+    def test_split_by_year(self):
+        tmp_dir = os.path.join(get_test_dir(), "tmp_split_year")
         if not os.path.exists(tmp_dir):
             os.makedirs(tmp_dir)
-        split_by_month(csv_file, tmp_dir, verbose=False)
+        split_by_year(csv_file, tmp_dir, verbose=False)
+        self._test_by(csv_file, tmp_dir)
+        shutil.rmtree(tmp_dir)
 
+    def _test_bm(self, csv_file, tmp_dir):
         month_dict = {}
         with open(csv_file, "r") as fobj:
             for i, line in enumerate(fobj):
                 if i == 0:
                     continue
                 line = line.strip()
+                if not len(line):
+                    continue
                 dt = _parse_time(line)
                 k = f"{dt.year}{dt.month:02d}"
                 if k in month_dict:
@@ -81,8 +80,16 @@ class TestCsvTickFile(unittest.TestCase):
             if x.endswith(".csv"):
                 k = x.split(".")[0]
                 with open(os.path.join(tmp_dir, x)) as fobj:
-                    split_month_dict[k] = [x.strip() for x in fobj.readlines()[1:]]
+                    split_month_dict[k] = [x.strip() for x in fobj.readlines()[1:] if len(x.strip())]
+                self.assertEqual(len(month_dict[k]), len(split_month_dict[k]))
                 self.assertEqual(month_dict[k], split_month_dict[k])
+
+    def test_split_by_month(self):
+        tmp_dir = os.path.join(get_test_dir(), "tmp_split_month")
+        if not os.path.exists(tmp_dir):
+            os.makedirs(tmp_dir)
+        split_by_month(csv_file, tmp_dir, verbose=False)
+        self._test_bm(csv_file, tmp_dir)
         shutil.rmtree(tmp_dir)
 
     def test_sub_ranges(self):
@@ -100,12 +107,18 @@ class TestCsvTickFile(unittest.TestCase):
                 total_size += len(buff)
                 if i < nworkers - 1:
                     self.assertEqual(buff[-1], "\n")
+                else:
+                    self.assertEqual(buff[-1], "5")
         self.assertEqual(fsize, total_size)
 
     def test_parallel_split_by_year(self):
         tmp_dir = os.path.join(get_test_dir(), "tmp_parallel_split_year")
         parallel_split_by_year(csv_file, tmp_dir, nworkers=10)
+        self._test_by(csv_file, tmp_dir)
+        shutil.rmtree(tmp_dir)
 
     def test_parallel_split_by_month(self):
         tmp_dir = os.path.join(get_test_dir(), "tmp_parallel_split_month")
         parallel_split_by_month(csv_file, tmp_dir, nworkers=10)
+        self._test_bm(csv_file, tmp_dir)
+        shutil.rmtree(tmp_dir)
