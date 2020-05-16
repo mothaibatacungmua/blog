@@ -5,6 +5,8 @@ import time
 import tempfile
 import shutil
 import multiprocessing as mp
+from multiprocessing.managers import ValueProxy
+import ctypes
 
 from fxqu4nt.logger import create_logger
 from fxqu4nt.utils.common import get_tmp_dir
@@ -75,7 +77,25 @@ def tail(csv_file, n):
     return "\n".join(buf)
 
 
-def split_by_month(csv_file, out_dir=".", offset_range=None, wid=0, progress: mp.Value=None):
+def split_by_month(
+        csv_file,
+        out_dir=".",
+        offset_range=None,
+        write_header=True,
+        wid=0,
+        verbose=True,
+        progress: ValueProxy=None):
+    """ Split csv quote data by month
+
+    :param csv_file: Input csv file
+    :param out_dir: Output directory
+    :param offset_range: Range considered in file
+    :param write_header: Write out header
+    :param wid: Process ID
+    :param verbose: Print log
+    :param progress: Tracking progress
+    :return: Output directory
+    """
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
     start_time = time.time()
@@ -92,6 +112,7 @@ def split_by_month(csv_file, out_dir=".", offset_range=None, wid=0, progress: mp
         offset_range = [0, fsize]
     fobj.seek(offset_range[0])
 
+    prev_offset = fobj.tell()
     header = head(csv_file, 1)
     line = fobj.readline()
     while line:
@@ -115,19 +136,21 @@ def split_by_month(csv_file, out_dir=".", offset_range=None, wid=0, progress: mp
                     month_f.close()
                     month_lines = []
                 month_f = open(os.path.join(out_dir, "%s%02d.csv" % (dt.year, dt.month)), "w")
-                month_f.write(header)
+                if write_header: month_f.write(header)
                 current_year = dt.year
                 current_month = dt.month
                 month_lines.append(line)
-                logger.info("wid%d/split(): Splitting tick data for %s%02d" % (wid, current_year, current_month))
+                if verbose: logger.info("wid%d/split(): Splitting tick data for %s%02d" % (wid, current_year, current_month))
             else:
                 month_lines.append(line)
                 if len(month_lines) > 10000:
                     month_f.write("\n" + "\n".join(month_lines))
                     month_lines = []
-                    per = float(fobj.tell() - offset_range[0]) / fsize
+                    dealed = fobj.tell() - prev_offset
+                    per = float(dealed) / fsize
+                    prev_offset = fobj.tell()
                     if progress is not None:
-                        progress += per
+                        progress.value += per
         count += 1
         line = fobj.readline()
 
@@ -135,11 +158,36 @@ def split_by_month(csv_file, out_dir=".", offset_range=None, wid=0, progress: mp
     month_f.write("\n" + "\n".join(month_lines))
     month_f.close()
 
+    dealed = fobj.tell() - prev_offset
+    per = float(dealed) / fsize
+    if progress is not None:
+        progress.value += per
+
     end_time = time.time()
-    logger.info("wid%d/split(): Splitting process token %0.4f seconds" % (wid, end_time - start_time))
+    if verbose: logger.info("wid%d/split(): Splitting process token %0.4f seconds" % (wid, end_time - start_time))
+
+    return out_dir
 
 
-def split_by_year(csv_file, out_dir=".", offset_range=None, wid=0, progress: mp.Value=None):
+def split_by_year(
+        csv_file,
+        out_dir=".",
+        offset_range=None,
+        write_header=True,
+        wid=0,
+        verbose=True,
+        progress: ValueProxy=None):
+    """ Split csv quote data by year
+
+    :param csv_file: Input csv file
+    :param out_dir: Output directory
+    :param offset_range: Range considered in file
+    :param write_header: Write out header
+    :param wid: Process ID
+    :param verbose: Print log
+    :param progress: Tracking progress
+    :return: Output directory
+    """
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
     start_time = time.time()
@@ -156,6 +204,7 @@ def split_by_year(csv_file, out_dir=".", offset_range=None, wid=0, progress: mp.
     fobj.seek(offset_range[0])
 
     header = head(csv_file, 1)
+    prev_offset = fobj.tell()
     line = fobj.readline()
     while line:
         if fobj.tell() > offset_range[1]:
@@ -177,26 +226,35 @@ def split_by_year(csv_file, out_dir=".", offset_range=None, wid=0, progress: mp.
                     year_f.close()
                     year_lines = []
                 year_f = open(os.path.join(out_dir, "%s.csv" % str(dt.year)), "w")
-                year_f.write(header)
+                if write_header: year_f.write(header)
                 current_year = dt.year
                 year_lines.append(line)
-                logger.info("wid%d/split(): Splitting tick data for %d" % (wid, current_year))
+                if verbose: logger.info("wid%d/split(): Splitting tick data for %d" % (wid, current_year))
             else:
                 year_lines.append(line)
                 if len(year_lines) > 10000:
                     year_f.write("\n" + "\n".join(year_lines))
                     year_lines = []
-                    per = float(fobj.tell() - offset_range[0])/fsize
+                    dealed = fobj.tell() - prev_offset
+                    per = float(dealed)/fsize
+                    prev_offset = fobj.tell()
                     if progress is not None:
-                        progress += per
+                        progress.value += per
         count += 1
         line = fobj.readline()
 
     year_f.write("\n" + "\n".join(year_lines))
     year_f.close()
 
+    dealed = fobj.tell() - prev_offset
+    per = float(dealed) / fsize
+    if progress is not None:
+        progress.value += per
+
     end_time = time.time()
-    logger.info("wid%d/split(): Splitting process token %0.4f seconds" % (wid, end_time - start_time))
+    if verbose: logger.info("wid%d/split(): Splitting process token %0.4f seconds" % (wid, end_time - start_time))
+
+    return out_dir
 
 
 def fix_date(csv_file, cbfn=None):
@@ -292,11 +350,15 @@ def sub_ranges(csv_file, nworkers=4):
     return parts
 
 
-def parallel_split_by_month(csv_file, out_dir=".", nworkers=4):
-    # pool = mp.Pool(processes=nworkers)
-    # results = [pool.apply(self._split_month_worker, args=(wid, parts[wid])) for wid in range(nworkers)]
-    # print(results)
-    pass
+def parallel_split_by_month(csv_file, out_dir=".", nworkers=4, progress: ValueProxy=None):
+    parts = sub_ranges(csv_file, nworkers=nworkers)
+    pool = mp.Pool(processes=nworkers)
+    for wid in range(nworkers):
+        os.makedirs(os.path.join(out_dir, "wid%d" % wid))
+    results = [pool.apply(split_by_month,
+                          args=(csv_file, os.path.join(out_dir, "wid%d" % wid), parts[wid], False, wid, False, progress))
+                    for wid in range(nworkers)]
+    print(results)
 
 
 def parallel_split_by_year(self, out_dir=".", nworkers=4):

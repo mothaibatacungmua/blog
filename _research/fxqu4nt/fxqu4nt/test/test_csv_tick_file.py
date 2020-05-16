@@ -106,4 +106,5 @@ class TestCsvTickFile(unittest.TestCase):
         pass
 
     def test_parallel_split_by_month(self):
-        pass
+        tmp_dir = os.path.join(get_test_dir(), "tmp_parallel_split_month")
+        parallel_split_by_month(csv_file, tmp_dir, nworkers=10)
