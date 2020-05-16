@@ -8,7 +8,6 @@ import multiprocessing as mp
 from multiprocessing.managers import ValueProxy
 
 from fxqu4nt.logger import create_logger
-from fxqu4nt.utils.common import get_tmp_dir
 
 
 MAX_BYTES_LINE = 256
@@ -359,10 +358,16 @@ def _parallel_split(csv_file, out_dir=".", mode="month", nworkers=4, progress: V
         split_fn = split_by_year
     else:
         raise ValueError(f"Not support split mode {mode}")
-    results = [pool.apply(split_fn,
-                          args=(
-                          csv_file, os.path.join(out_dir, "wid%d" % wid), parts[wid], False, wid, False, progress))
+
+    results = []
+    def track_result(x):
+        results.append(x)
+    workers = [pool.apply_async(split_fn,
+              args=(
+              csv_file, os.path.join(out_dir, "wid%d" % wid), parts[wid], False, wid, False, progress), callback=track_result)
                for wid in range(nworkers)]
+    for p in workers:
+        p.wait()
     results = sorted(results)
     header = head(csv_file, 1)
     fobj = None
