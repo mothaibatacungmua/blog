@@ -6,7 +6,6 @@ import tempfile
 import shutil
 import multiprocessing as mp
 from multiprocessing.managers import ValueProxy
-import ctypes
 
 from fxqu4nt.logger import create_logger
 from fxqu4nt.utils.common import get_tmp_dir
@@ -77,6 +76,13 @@ def tail(csv_file, n):
     return "\n".join(buf)
 
 
+def _check_start_and_write(fobj, lines):
+    if fobj.tell() > 0:
+        fobj.write("\n" + "\n".join(lines))
+    else:
+        fobj.write("\n".join(lines))
+
+
 def split_by_month(
         csv_file,
         out_dir=".",
@@ -132,7 +138,7 @@ def split_by_month(
             if current_year != dt.year or current_month != dt.month or \
                     current_year is None or current_month is None:
                 if month_f is not None:
-                    month_f.write("\n" + "\n".join(month_lines))
+                    _check_start_and_write(month_f, month_lines)
                     month_f.close()
                     month_lines = []
                 month_f = open(os.path.join(out_dir, "%s%02d.csv" % (dt.year, dt.month)), "w")
@@ -144,7 +150,7 @@ def split_by_month(
             else:
                 month_lines.append(line)
                 if len(month_lines) > 10000:
-                    month_f.write("\n" + "\n".join(month_lines))
+                    _check_start_and_write(month_f, month_lines)
                     month_lines = []
                     dealed = fobj.tell() - prev_offset
                     per = float(dealed) / fsize
@@ -155,7 +161,7 @@ def split_by_month(
         line = fobj.readline()
 
     # flush year_lines buffer
-    month_f.write("\n" + "\n".join(month_lines))
+    _check_start_and_write(month_f, month_lines)
     month_f.close()
 
     dealed = fobj.tell() - prev_offset
@@ -222,7 +228,7 @@ def split_by_year(
             dt = _parse_time(line)
             if current_year != dt.year or current_year is None:
                 if year_f is not None:
-                    year_f.write("\n" + "\n".join(year_lines))
+                    _check_start_and_write(year_f, year_lines)
                     year_f.close()
                     year_lines = []
                 year_f = open(os.path.join(out_dir, "%s.csv" % str(dt.year)), "w")
@@ -233,7 +239,7 @@ def split_by_year(
             else:
                 year_lines.append(line)
                 if len(year_lines) > 10000:
-                    year_f.write("\n" + "\n".join(year_lines))
+                    _check_start_and_write(year_f, year_lines)
                     year_lines = []
                     dealed = fobj.tell() - prev_offset
                     per = float(dealed)/fsize
@@ -243,7 +249,7 @@ def split_by_year(
         count += 1
         line = fobj.readline()
 
-    year_f.write("\n" + "\n".join(year_lines))
+    _check_start_and_write(year_f, year_lines)
     year_f.close()
 
     dealed = fobj.tell() - prev_offset
