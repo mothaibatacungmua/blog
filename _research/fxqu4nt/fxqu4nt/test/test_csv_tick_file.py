@@ -31,7 +31,7 @@ class TestCsvTickFile(unittest.TestCase):
         tmp_dir = os.path.join(get_test_dir(), "tmp_split_year")
         if not os.path.exists(tmp_dir):
             os.makedirs(tmp_dir)
-        split_by_year(csv_file, tmp_dir)
+        split_by_year(csv_file, tmp_dir, verbose=False)
 
         _2010_year_lines = []
         _2011_year_lines = []
@@ -59,7 +59,7 @@ class TestCsvTickFile(unittest.TestCase):
         tmp_dir = os.path.join(get_test_dir(), "tmp_split_month")
         if not os.path.exists(tmp_dir):
             os.makedirs(tmp_dir)
-        split_by_month(csv_file, tmp_dir)
+        split_by_month(csv_file, tmp_dir, verbose=False)
 
         month_dict = {}
         with open(csv_file, "r") as fobj:
@@ -103,7 +103,8 @@ class TestCsvTickFile(unittest.TestCase):
         self.assertEqual(fsize, total_size)
 
     def test_parallel_split_by_year(self):
-        pass
+        tmp_dir = os.path.join(get_test_dir(), "tmp_parallel_split_year")
+        parallel_split_by_year(csv_file, tmp_dir, nworkers=10)
 
     def test_parallel_split_by_month(self):
         tmp_dir = os.path.join(get_test_dir(), "tmp_parallel_split_month")

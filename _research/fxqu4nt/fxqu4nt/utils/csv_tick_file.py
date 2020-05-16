@@ -356,16 +356,58 @@ def sub_ranges(csv_file, nworkers=4):
     return parts
 
 
-def parallel_split_by_month(csv_file, out_dir=".", nworkers=4, progress: ValueProxy=None):
+def _parallel_split(csv_file, out_dir=".", mode="month", nworkers=4, progress: ValueProxy=None):
     parts = sub_ranges(csv_file, nworkers=nworkers)
     pool = mp.Pool(processes=nworkers)
     for wid in range(nworkers):
         os.makedirs(os.path.join(out_dir, "wid%d" % wid))
-    results = [pool.apply(split_by_month,
-                          args=(csv_file, os.path.join(out_dir, "wid%d" % wid), parts[wid], False, wid, False, progress))
-                    for wid in range(nworkers)]
-    print(results)
+
+    if mode == "month":
+        split_fn = split_by_month
+    elif mode == "year":
+        split_fn = split_by_year
+    else:
+        raise ValueError(f"Not support split mode {mode}")
+    results = [pool.apply(split_fn,
+                          args=(
+                          csv_file, os.path.join(out_dir, "wid%d" % wid), parts[wid], False, wid, False, progress))
+               for wid in range(nworkers)]
+    results = sorted(results)
+    header = head(csv_file, 1)
+    fobj = None
+    for d in results:
+        for f in sorted(list(os.listdir(d))):
+            fp = os.path.join(out_dir, f)
+            fpp = os.path.join(d, f)
+            if not os.path.exists(fp):
+                if fobj: fobj.close()
+                fobj = open(fp, "w")
+                fobj.write(header)
+                fobj.write("\n")
+            with open(fpp, "r") as part_obj:
+                buff = part_obj.read(8092)
+                while buff:
+                    fobj.write(buff)
+                    buff = part_obj.read(8092)
+            fobj.write("\n")
+    if fobj: fobj.close()
+    for d in results:
+        shutil.rmtree(d)
 
 
-def parallel_split_by_year(self, out_dir=".", nworkers=4):
-    pass
+def parallel_split_by_month(csv_file, out_dir=".", nworkers=4, progress: ValueProxy=None):
+    return _parallel_split(
+        csv_file,
+        out_dir=out_dir,
+        mode="month",
+        nworkers=nworkers,
+        progress=progress)
+
+
+def parallel_split_by_year(csv_file, out_dir=".", nworkers=4, progress: ValueProxy=None):
+    return _parallel_split(
+        csv_file,
+        out_dir=out_dir,
+        mode="year",
+        nworkers=nworkers,
+        progress=progress)
