@@ -75,10 +75,9 @@ def tail(csv_file, n):
     return "\n".join(buf)
 
 
-def split_by_month(csv_file, out_dir=".", offset_range=None, wid=0):
+def split_by_month(csv_file, out_dir=".", offset_range=None, wid=0, progress: mp.Value=None):
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
-    header = None
     start_time = time.time()
     fobj = open(csv_file, 'r')
 
@@ -93,15 +92,20 @@ def split_by_month(csv_file, out_dir=".", offset_range=None, wid=0):
         offset_range = [0, fsize]
     fobj.seek(offset_range[0])
 
-    for line in fobj:
+    header = head(csv_file, 1)
+    line = fobj.readline()
+    while line:
         if fobj.tell() > offset_range[1]:
             break
-
         line = line.strip()
         if len(line) == 0:
+            line = fobj.readline()
+            count += 1
             continue
         if count == 0:
-            header = line
+            line = fobj.readline()
+            count += 1
+            continue
         else:
             dt = _parse_time(line)
             if current_year != dt.year or current_month != dt.month or \
@@ -115,30 +119,32 @@ def split_by_month(csv_file, out_dir=".", offset_range=None, wid=0):
                 current_year = dt.year
                 current_month = dt.month
                 month_lines.append(line)
-                logger.info("wid-%d - split(): Splitting tick data for %s%02d" % (wid, current_year, current_month))
+                logger.info("wid%d/split(): Splitting tick data for %s%02d" % (wid, current_year, current_month))
             else:
                 month_lines.append(line)
                 if len(month_lines) > 10000:
                     month_f.write("\n" + "\n".join(month_lines))
                     month_lines = []
+                    per = float(fobj.tell() - offset_range[0]) / fsize
+                    if progress is not None:
+                        progress += per
         count += 1
+        line = fobj.readline()
 
     # flush year_lines buffer
     month_f.write("\n" + "\n".join(month_lines))
     month_f.close()
 
     end_time = time.time()
-    logger.info("wid-%d - split(): Splitting process token %0.4f seconds" % (wid, end_time - start_time))
+    logger.info("wid%d/split(): Splitting process token %0.4f seconds" % (wid, end_time - start_time))
 
 
-def split_by_year(csv_file, out_dir=".", offset_range=None, wid=0):
+def split_by_year(csv_file, out_dir=".", offset_range=None, wid=0, progress: mp.Value=None):
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
-    header = None
     start_time = time.time()
     fobj = open(csv_file, 'r')
 
-    start = 0
     count = 0
     year_lines = []
     current_year = None
@@ -149,14 +155,20 @@ def split_by_year(csv_file, out_dir=".", offset_range=None, wid=0):
         offset_range = [0, fsize]
     fobj.seek(offset_range[0])
 
-    for line in fobj:
+    header = head(csv_file, 1)
+    line = fobj.readline()
+    while line:
         if fobj.tell() > offset_range[1]:
             break
         line = line.strip()
         if len(line) == 0:
+            line = fobj.readline()
+            count += 1
             continue
-        if count == 0:
-            header = line
+        if count == 0 and offset_range[0] == 0:
+            line = fobj.readline()
+            count += 1
+            continue
         else:
             dt = _parse_time(line)
             if current_year != dt.year or current_year is None:
@@ -168,19 +180,23 @@ def split_by_year(csv_file, out_dir=".", offset_range=None, wid=0):
                 year_f.write(header)
                 current_year = dt.year
                 year_lines.append(line)
-                logger.info("wid-%d - split(): Splitting tick data for %d" % (wid, current_year))
+                logger.info("wid%d/split(): Splitting tick data for %d" % (wid, current_year))
             else:
                 year_lines.append(line)
                 if len(year_lines) > 10000:
                     year_f.write("\n" + "\n".join(year_lines))
                     year_lines = []
+                    per = float(fobj.tell() - offset_range[0])/fsize
+                    if progress is not None:
+                        progress += per
         count += 1
+        line = fobj.readline()
 
     year_f.write("\n" + "\n".join(year_lines))
     year_f.close()
 
     end_time = time.time()
-    logger.info("wid-%d - split(): Splitting process token %0.4f seconds" % (wid, end_time - start_time))
+    logger.info("wid%d/split(): Splitting process token %0.4f seconds" % (wid, end_time - start_time))
 
 
 def fix_date(csv_file, cbfn=None):
@@ -251,30 +267,36 @@ def _split_year_worker(csv_file, wid, offset_range):
     return save_dir
 
 
-def parallel_split_by_month(self, out_dir=".", nworkers=4):
-    file_size = self.fsize
+def sub_ranges(csv_file, nworkers=4):
+    fsize = get_file_size(csv_file)
 
-    part_size = int(file_size / nworkers)
+    part_size = int(fsize / nworkers)
     offset = 0
     parts = []
 
-    fobj = open(self.fpath, 'rb')
+    fobj = open(csv_file, 'rb')
     max_bytes = MAX_BYTES_LINE * 5
 
     for i in range(0, nworkers):
         fobj.seek(offset + part_size - max_bytes)
         if i == (nworkers - 1):
-            buff = fobj.read(max_bytes + MAX_BYTES_LINE*(nworkers+2))
+            buff = fobj.read(max_bytes + MAX_BYTES_LINE * (nworkers + 2))
         else:
             buff = fobj.read(max_bytes)
-        found = buff.rfind(b'\n')
-        parts.append((offset, offset + part_size - max_bytes + found))
+        if fobj.tell() < fsize:
+            found = buff.rfind(b'\n')
+        else:
+            found = fsize-1
+        parts.append((offset, offset + part_size - max_bytes + found+1))
+        offset = offset + part_size - max_bytes + found+1
+    return parts
 
-        offset = offset + part_size - max_bytes + found
 
-    pool = mp.Pool(processes=nworkers)
-    results = [pool.apply(self._split_month_worker, args=(wid, parts[wid])) for wid in range(nworkers)]
-    print(results)
+def parallel_split_by_month(csv_file, out_dir=".", nworkers=4):
+    # pool = mp.Pool(processes=nworkers)
+    # results = [pool.apply(self._split_month_worker, args=(wid, parts[wid])) for wid in range(nworkers)]
+    # print(results)
+    pass
 
 
 def parallel_split_by_year(self, out_dir=".", nworkers=4):
