@@ -122,3 +122,36 @@ class TestCsvTickFile(unittest.TestCase):
         parallel_split_by_month(csv_file, tmp_dir, nworkers=10)
         self._test_bm(csv_file, tmp_dir)
         shutil.rmtree(tmp_dir)
+
+    def _test_fd(self, csv_file, out_file):
+        forigin = open(csv_file, "r")
+        origin_lines = forigin.readlines()[1:]
+
+        fconvert = open(out_file, "r")
+        convert_lines = fconvert.readlines()[1:]
+
+        self.assertEqual(len(origin_lines), len(convert_lines))
+
+        for l in convert_lines:
+            dt = _parse_time(l)
+            self.assertLess(dt.weekday(), 5)
+
+    def test_fix_date(self):
+        tmp_dir = os.path.join(get_test_dir(), "tmp_fix_date")
+        if not os.path.exists(tmp_dir):
+            os.makedirs(tmp_dir)
+        out_file = os.path.join(tmp_dir, "out.csv")
+        fix_date(csv_file, out_file, verbose=False)
+
+        self._test_fd(csv_file, out_file)
+        shutil.rmtree(tmp_dir)
+
+    def test_parallel_fix_date(self):
+        tmp_dir = os.path.join(get_test_dir(), "tmp_fix_date")
+        if not os.path.exists(tmp_dir):
+            os.makedirs(tmp_dir)
+        out_file = os.path.join(tmp_dir, "out.csv")
+        parallel_fix_date(csv_file, out_file)
+
+        self._test_fd(csv_file, out_file)
+        shutil.rmtree(tmp_dir)

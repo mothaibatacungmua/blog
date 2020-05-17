@@ -122,12 +122,9 @@ def split_by_month(
     line = fobj.readline()
 
     while line:
-        if fobj.tell() > (offset_range[1]+1):
-            break
         line = line.strip()
-        if fobj.tell() == fsize:
-            if len(line):
-                month_lines.append(line)
+        if fobj.tell() == offset_range[1] or fobj.tell() == fsize:
+            if len(line): month_lines.append(line)
             break
         if len(line) == 0:
             line = fobj.readline()
@@ -217,12 +214,9 @@ def split_by_year(
     prev_offset = fobj.tell()
     line = fobj.readline()
     while line:
-        if fobj.tell() > (offset_range[1] + 1):
-            break
         line = line.strip()
-        if fobj.tell() == fsize:
-            if len(line):
-                year_lines.append(line)
+        if fobj.tell() == offset_range[1] or fobj.tell() == fsize:
+            if len(line): year_lines.append(line)
             break
         if len(line) == 0:
             line = fobj.readline()
@@ -271,48 +265,92 @@ def split_by_year(
     return out_dir
 
 
-def fix_date(csv_file, cbfn=None):
-    bufflen = 1024*1024*2
+def _fix_sample(line):
+    dt = _parse_time(line)
+    while dt.weekday() >= 5:
+        dt = dt - timedelta(seconds=3600 * 24)
+    patch_line = line.split(",")
+    patch_line[0] = dt.strftime("%Y%m%d %H:%M:%S.%f")
+    return ",".join(patch_line)
+
+
+def fix_date(
+        csv_file,
+        out_file=None,
+        offset_range=None,
+        write_header=True,
+        wid=0,
+        verbose=True,
+        progress: ValueProxy=None):
+    """
+
+    :param csv_file: Input csv file
+    :param out_file: Output csv file (Optional)
+    :param offset_range: Range considered in file
+    :param write_header: Write out header
+    :param wid: Process ID
+    :param verbose: Print log
+    :param progress: Tracking progress
+    :return:
+    """
     temp_name = next(tempfile._get_candidate_names())
     pdir = os.path.dirname(csv_file)
     temp_path = os.path.join(pdir, temp_name)
     fwrite = open(temp_path, "w")
-    with open(csv_file, 'rb') as fobj:
-        buff = fobj.read(bufflen) # 16Mb
-        remainder = b''
-        lidx = buff.rfind(b'\n')
-        if lidx < len(buff)-1 and lidx >= 0:
-            remainder = buff[lidx+1:]
-            buff = buff[:lidx]
-        while len(buff):
-            lines = [l.decode('utf-8') for l in buff.split(b'\n')]
-            wbuff = []
-            for line in lines:
-                line = line.strip()
-                if len(line) == 0:
-                    continue
-                if line.startswith("DateTime"):
-                    fwrite.write(line + "\n")
-                    continue
-                dt = _parse_time(line)
-                while dt.weekday() >= 5:
-                    dt = dt - timedelta(seconds=3600*24)
-                patch_line = line.split(",")
-                patch_line[0] = dt.strftime("%Y%m%d %H:%M:%S.%f")
-                wbuff.append(",".join(patch_line))
 
-            fwrite.write("\n".join(wbuff) + "\n")
-            fwrite.flush()
-            if not cbfn is None: cbfn(fobj) # callback to track progress
-            buff = remainder + fobj.read(bufflen)  # 16Mb
-            lidx = buff.rfind(b'\n')
-            remainder = b''
-            if lidx < len(buff) - 1 and lidx >= 0:
-                remainder = buff[lidx + 1:]
-                buff = buff[:lidx]
+    fsize = get_file_size(csv_file)
+    fobj = open(csv_file, 'r')
 
+    if offset_range is None:
+        offset_range = [0, fsize]
+    fobj.seek(offset_range[0])
+    count = 0
+    header = head(csv_file, 1)
+    prev_offset = fobj.tell()
+    patch_lines = []
+
+    start_time = time.time()
+    if write_header: fwrite.write(header)
+    line = fobj.readline()
+    while line:
+        line = line.strip()
+        if fobj.tell() == offset_range[1] or fobj.tell() == fsize:
+            if len(line): patch_lines.append(_fix_sample(line))
+            break
+        if len(line) == 0:
+            line = fobj.readline()
+            count += 1
+            continue
+        if count == 0 and offset_range[0] == 0:
+            line = fobj.readline()
+            count += 1
+            continue
+        else:
+            patch_lines.append(_fix_sample(line))
+            if len(patch_lines) > 10000:
+                _check_start_and_write(fwrite, patch_lines)
+                patch_lines = []
+                dealed = fobj.tell() - prev_offset
+                per = float(dealed) / fsize
+                prev_offset = fobj.tell()
+                if progress is not None:
+                    progress.value += per
+        count += 1
+        line = fobj.readline()
+    _check_start_and_write(fwrite, patch_lines)
     fwrite.close()
+    end_time = time.time()
+    if verbose: logger.info("wid%d/split(): Splitting process token %0.4f seconds" % (wid, end_time - start_time))
+
+    dealed = fobj.tell() - prev_offset
+    per = float(dealed) / fsize
+    if progress is not None:
+        progress.value += per
+    if out_file:
+        shutil.move(temp_path, out_file)
+        return out_file
     shutil.move(temp_path, csv_file)
+    return csv_file
 
 
 def split(csv_file, mode, out_dir="."):
@@ -407,3 +445,47 @@ def parallel_split_by_year(csv_file, out_dir=".", nworkers=4, progress: ValuePro
         mode="year",
         nworkers=nworkers,
         progress=progress)
+
+
+def parallel_fix_date(csv_file, out_file=None, nworkers=4, progress: ValueProxy=None):
+    if out_file is None:
+        out_dir = os.path.dirname(csv_file)
+        basename = os.path.basename(csv_file)
+    else:
+        out_dir = os.path.dirname(out_file)
+        basename = os.path.basename(out_file)
+    parts = sub_ranges(csv_file, nworkers=nworkers)
+    pool = mp.Pool(processes=nworkers)
+    for wid in range(nworkers):
+        os.makedirs(os.path.join(out_dir, "wid%d" % wid))
+
+    basenames = [os.path.join(out_dir, "wid%d" % wid, basename) for wid in range(nworkers)]
+    results = []
+
+    def track_result(x):
+        results.append(x)
+
+    workers = [pool.apply_async(fix_date,
+                                args=(
+                                    csv_file, basenames[wid], parts[wid], False, wid, False,
+                                    progress), callback=track_result)
+               for wid in range(nworkers)]
+    for p in workers:
+        p.wait()
+
+    results = sorted(results)
+    header = head(csv_file, 1)
+
+    fout = open(out_file, "w")
+    fout.write(header + "\n")
+
+    for d in results:
+        with open(d) as fobj:
+            buff = fobj.read(8092)
+            while buff:
+                fout.write(buff)
+                buff = fobj.read(8092)
+        fout.write("\n")
+
+    fout.close()
+    return out_file

@@ -6,7 +6,8 @@ from PyQt5 import QtGui
 
 from fxqu4nt.ui.widget import MarketWidget, DatabaseDialog
 from fxqu4nt.ui.tools import CsvPatchDialog
-from fxqu4nt.settings import PACKAGE_NAME, VERSION, get_all_q_script_paths, get_all_q_utils_paths
+from fxqu4nt.settings import get_all_q_script_paths, get_all_q_utils_paths
+from fxqu4nt import VERSION, PACKAGE_NAME
 from fxqu4nt.market.kdb import get_db
 from fxqu4nt.logger import create_logger
 
