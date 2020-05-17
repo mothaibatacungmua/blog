@@ -171,7 +171,7 @@ def split_by_month(
         progress.value += per
 
     end_time = time.time()
-    if verbose: logger.info("wid%d/split(): Splitting process token %0.4f seconds" % (wid, end_time - start_time))
+    if verbose: logger.info("wid%d/split(): Splitting process token %0.4f seconds, number of lines:%d" % (wid, end_time - start_time, count))
 
     return out_dir
 
@@ -260,7 +260,7 @@ def split_by_year(
         progress.value += per
 
     end_time = time.time()
-    if verbose: logger.info("wid%d/split(): Splitting process token %0.4f seconds" % (wid, end_time - start_time))
+    if verbose: logger.info("wid%d/split(): Splitting process token %0.4f seconds, number of lines:%d" % (wid, end_time - start_time, count))
 
     return out_dir
 
@@ -270,7 +270,9 @@ def _fix_sample(line):
     while dt.weekday() >= 5:
         dt = dt - timedelta(seconds=3600 * 24)
     patch_line = line.split(",")
-    patch_line[0] = dt.strftime("%Y%m%d %H:%M:%S.%f")
+    second_part = patch_line[0].split(" ")[1]
+    first_part = f"{dt.year}{dt.month:02d}{dt.day:02d}"
+    patch_line[0] = first_part + " " + second_part
     return ",".join(patch_line)
 
 
@@ -314,6 +316,8 @@ def fix_date(
     line = fobj.readline()
     while line:
         line = line.strip()
+        if fobj.tell() > (offset_range[1] + 1):
+            break
         if fobj.tell() == offset_range[1] or fobj.tell() == fsize:
             if len(line): patch_lines.append(_fix_sample(line))
             break
@@ -340,7 +344,7 @@ def fix_date(
     _check_start_and_write(fwrite, patch_lines)
     fwrite.close()
     end_time = time.time()
-    if verbose: logger.info("wid%d/split(): Splitting process token %0.4f seconds" % (wid, end_time - start_time))
+    if verbose: logger.info("wid%d/split(): Splitting process token %0.4f seconds, number of lines:%d" % (wid, end_time - start_time, count))
 
     dealed = fobj.tell() - prev_offset
     per = float(dealed) / fsize
