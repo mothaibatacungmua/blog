@@ -74,7 +74,7 @@ class TickBar(BarBase):
 
         return False
 
-    def async_generate(self):
+    def generate(self):
         if isinstance(self.symbol, Symbol):
             name = self.symbol.name
         else:
@@ -85,9 +85,8 @@ class TickBar(BarBase):
         bar_path = os.path.join(bar_path, tbn)
         qtb = self.kdb.quote_table_name(self.symbol)
 
-        self.q.sendAsync('.tickbar.genBars',
+        self.q.sendSync('.tickbar.genBars',
                          bar_path,
                          tbn, np.bytes_(qtb.encode('utf-8')),
-                         np.int32(self.step_size),
-                         np.bool_(1)) # see q/tick_bar.q
+                         np.int32(self.step_size)) # see q/tick_bar.q
         return bar_path
