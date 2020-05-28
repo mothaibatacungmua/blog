@@ -5,14 +5,12 @@ dpt:{[d;tbn;t]
     alld: ?[t;();1b;enlist[`Date]!enlist (`date$;`DateTime)]; / get all distinct date
     p: ?[;();();`Date]alld; / flatten date to list
     tbyd: (enlist')(?[t;;0b;()]')(enlist')((=;($;enlist `date;`DateTime);)')p; / table by date
-    (.cm.stb[d;tbn;1b]')p,'tbyd}
+    (.cm.stb[d;tbn;]')p,'tbyd}
 wqcsv:{[d;tbn] dpt[d;tbn]}
 colnames:`DateTime`Bid`Ask`Volume
 rqcsv:flip colnames!("ZFFI";",")0:
 csvpt:{[d;f;tbn] .Q.fs[wqcsv[d;tbn] rqcsv@]hsym`$f}
 tcsvpt:{[d;f;tbn]
     csvpt[d;f;"/",tbn,"/"];
-    .dbmt.setattrcol[hsym`$d;`$tbn;`DateTime;`s]; /see utils/dbmaint.q
-    system "l ",(d);
-    neg[.z.w]("TASK_DONE");}
+    .dbmt.setattrcol[hsym`$d;`$tbn;`DateTime;`s];} /see utils/dbmaint.q
 \d .

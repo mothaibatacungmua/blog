@@ -4,12 +4,13 @@ import time
 import qpython
 import pandas as pd
 from typing import List
+from datetime import datetime
 from qpython import qconnection
 
 from fxqu4nt.market.symbol import Symbol
 from fxqu4nt.logger import create_logger
 from fxqu4nt.settings import get_mcnf
-from fxqu4nt.utils.common import normalize_path
+from fxqu4nt.utils.common import normalize_path, sqdt, q_dt_str
 
 TICK_SUFFIX = "zTick"
 SYMBOL_META_TABLE = "SymMeta"
@@ -199,49 +200,12 @@ class QuotesDB(object):
         self.save_meta_table()
         return True
 
-    def add_tick_data(self, symbol: [str, Symbol], tick_data: str) -> bool:
-        """  Add quotes data for a symbol, using if file has a normal size
-
-        :param symbol: Symbol to add, name or `Symbol` instance
-        :param tick_data: Csv tick data path
-        :return: Boolean
-        """
-        if self.q is None:
-            return False
-        tick_path = normalize_path(tick_data)
-        if isinstance(symbol, Symbol):
-            name = symbol.name
-        else:
-            name = symbol
-        var = SYMBOL_PREFIX+name+TICK_SUFFIX
-        query = '{var}:("ZFFI"; enlist ",") 0:`:{path}'\
-            .format(var=var, path=tick_path)
-
-        first_date_q = 'select [1] from `{var}'.format(var=var)
-        last_date_q = 'select [-1] from `{var}'.format(var=var)
-
-        try:
-            self._debug(query)
-            self.q(query)
-
-            fd_df = self.q(first_date_q, pandas=True)
-            ld_df = self.q(last_date_q, pandas=True)
-            fd = fd_df.iloc[0]["DateTime"]
-            ld = ld_df.iloc[0]["DateTime"]
-            self.logger.info("Tick data Symbol %s added, from: %s to: %s" % (name, str(fd), str(ld)))
-        except Exception as e:
-            self.logger.error("Add tick data for symbol %s error:%s" % (name, str(e)))
-            return False
-        return True
-
-    def async_add_tick_data(self, symbol: [str, Symbol], tick_data: str):
+    def add_tick_data_partitioned(self, symbol: [str, Symbol], tick_data: str):
         """  Add quotes data for a symbol, using for large file
-        The function `tcsvpt` was loaded when program start. The `tcsvqt` will return date which processed on demand.
-        See q/quote_csv_partition.q for detail.
+        The function `tcsvpt` was loaded when program start. See q/quote_csv_partition.q for detail.
 
         :param symbol: Symbol to add, name or `Symbol` instance
         :param tick_data: Csv tick data path
-        :param listener: Listener Thread
         :return: Boolean
         """
         tick_path = normalize_path(tick_data)
@@ -253,7 +217,7 @@ class QuotesDB(object):
         origin_dir = os.path.join(self.storage, SYMBOL_DIR, name, TICK_SUFFIX[1:]).replace("/", "\\")
         symbol_dir = normalize_path(os.path.join(self.storage, SYMBOL_DIR, name, TICK_SUFFIX[1:]))
         try:
-            self.q.sendAsync('.quote.tcsvpt', symbol_dir, tick_path, var) # see .quote.tcsvpt in q/quote_csv_partition.q
+            self.q.sendSync('.quote.tcsvpt', symbol_dir, tick_path, var) # see .quote.tcsvpt in q/quote_csv_partition.q
             return origin_dir
         except Exception as e:
             self.logger.error("Add tick data for symbol %s error:%s" % (name, str(e)))
@@ -265,8 +229,29 @@ class QuotesDB(object):
             name = symbol
         sym_dir = os.path.join(self.storage, SYMBOL_DIR, name)
         path = normalize_path(os.path.join(sym_dir, TICK_SUFFIX[1:]))
-        # TODO
+        qfmt = "\l {path}"
+
+        try:
+            query = qfmt.format(path=path)
+            self.q(query)
+        except Exception as e:
+            self.logger.error("Load quote table to q error:%s" % str(e))
         return path
+
+    def get_quote_data(self, symbol: [str, Symbol], from_date: datetime, to_date: datetime):
+        qfmt = ".tickbar.getTicks[{table};{fd};{td}]"
+        try:
+            query = qfmt.format(
+                table=self.quote_table_name(symbol),
+                fd=q_dt_str(from_date),
+                td=q_dt_str(to_date))
+            self._debug(query)
+            result = self.q(query, pandas=True)
+            result.drop("date", axis=1, inplace=True)
+            return result
+        except Exception as e:
+            self.logger.error("Load quote table to q error:%s" % str(e))
+        return None
 
     def get_symbols(self):
         if self.q is None:
@@ -346,51 +331,10 @@ class QuotesDB(object):
                 self.logger.error("Restore SymMeta table error:%s" % str(e))
         return None
 
-    def save_symbol_quotes(self):
-        if self.q is None:
-            return
-        symbol_meta = self.get_symbols()
-        qfmt = "$[`{var} in key`.;`:{path} set {var};]"
-        for sym_name, row in symbol_meta.iterrows():
-            sym_dir = os.path.join(self.storage, SYMBOL_DIR, sym_name)
-            if not os.path.exists(sym_dir):
-                os.makedirs(sym_dir)
-
-            for suffix in SUFFIXES:
-                var = SYMBOL_PREFIX + sym_name + suffix
-                path = normalize_path(os.path.join(sym_dir, suffix[1:]+".dat"))
-                try:
-                    query = qfmt.format(var=var, path=path)
-                    self._debug(query)
-                    self.q(query)
-                except Exception as e:
-                    self.logger.error("Save tick data for symbol %s table error:%s" % (sym_name, str(e)))
-
-    def restore_symbol_quotes(self):
-        if self.q is None:
-            return
-        symbol_meta = self.get_symbols()
-        qfmt = "\l {path}"
-        for sym_name, row in symbol_meta.iterrows():
-            sym_dir = os.path.join(self.storage, SYMBOL_DIR, sym_name)
-            if not os.path.exists(sym_dir):
-                continue
-            for suffix in SUFFIXES:
-                path = normalize_path(os.path.join(sym_dir, suffix[1:]))
-                try:
-                    if os.path.exists(path):
-                        query = qfmt.format(path=path)
-                        self._debug(query)
-                        self.q(query)
-                except Exception as e:
-                    self.logger.error("Restore tick data for symbol %s table error:%s" % (sym_name, str(e)))
-
     def save_all(self):
         if self.changed:
             self.logger.info("Saving SymMeta table...")
             self.save_meta_table()
-            self.logger.info("Saving Symbol quotes...")
-            self.save_symbol_quotes()
 
     def restore_all(self):
         self.logger.info("Restore SymMeta table")
@@ -431,31 +375,8 @@ class QuotesDB(object):
         if isinstance(symbol, Symbol):
             symbol = symbol.name
         sym_dir = os.path.join(self.storage, SYMBOL_DIR, symbol)
-        qfmt = "$[`{var} in key`.;delete {var} from `.;]"
-
-        # Remove for normal file
-        for suffix in SUFFIXES:
-            var = SYMBOL_PREFIX + symbol + suffix
-            path = normalize_path(os.path.join(sym_dir, suffix[1:] + ".dat"))
-            try:
-                query = qfmt.format(var=var, path=path)
-                self._debug(query)
-                self.q(query)
-                if os.path.exists(path):
-                    os.remove(path)
-            except Exception as e:
-                self.logger.error("Remove tick data for symbol %s table error:%s" % (symbol, str(e)))
-        # Remove for splayed table
-        for suffix in SUFFIXES:
-            path = normalize_path(os.path.join(sym_dir, suffix[1:]))
-            try:
-                if os.path.exists(path):
-                    for f in os.listdir(path):
-                        if f != ".":
-                            rp = os.path.join(path, f)
-                            shutil.rmtree(rp)
-            except Exception as e:
-                self.logger.error("Remove tick data for symbol %s table error:%s" % (symbol, str(e)))
+        if os.path.exists(sym_dir):
+            shutil.rmtree(sym_dir)
 
     def load_script(self, script_path):
         """ Load q script

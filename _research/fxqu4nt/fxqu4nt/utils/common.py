@@ -20,14 +20,12 @@ def _serialize_q_datetime(dt: datetime, type="ns"):
     :param type: ns = timestamp, D = date, ms = datetime
     :return:
     """
-    qty = qtype.QDATE
     if type == "ns":
-        qty = qtype.QTIMESTAMP
+        return qtemporal(np.datetime64(dt), qtype=qtype.QTIMESTAMP)
     elif type == "D":
-        qty = qtype.QDATE
+        return qtemporal(np.datetime64(dt), qtype=qtype.QDATE)
     elif type == "ms":
-        qty = qtype.QDATETIME
-    return qtemporal(np.datetime64(dt), qtype=qty)
+        return qtemporal(np.datetime64(dt), qtype=qtype.QDATETIME)
 
 
 sqdt = _serialize_q_datetime

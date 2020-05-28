@@ -2,7 +2,8 @@ import os
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 
-from fxqu4nt.utils.csv_tick_file import CsvTickFile
+from fxqu4nt.utils.csv_tick_file import parallel_fix_date
+from fxqu4nt.utils.common import get_tmp_dir
 from fxqu4nt.logger import create_logger
 
 

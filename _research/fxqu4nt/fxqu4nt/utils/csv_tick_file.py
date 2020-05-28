@@ -392,7 +392,10 @@ def _parallel_split(csv_file, out_dir=".", mode="month", nworkers=4, progress: V
     parts = sub_ranges(csv_file, nworkers=nworkers)
     pool = mp.Pool(processes=nworkers)
     for wid in range(nworkers):
-        os.makedirs(os.path.join(out_dir, "wid%d" % wid))
+        p = os.path.join(out_dir, "wid%d" % wid)
+        if os.path.exists(p):
+            shutil.rmtree(p)
+        os.makedirs(p)
 
     if mode == "month":
         split_fn = split_by_month
@@ -406,13 +409,14 @@ def _parallel_split(csv_file, out_dir=".", mode="month", nworkers=4, progress: V
         results.append(x)
     workers = [pool.apply_async(split_fn,
               args=(
-              csv_file, os.path.join(out_dir, "wid%d" % wid), parts[wid], False, wid, False, progress), callback=track_result)
+              csv_file, os.path.join(out_dir, "wid%d" % wid), parts[wid], False, wid, True, progress), callback=track_result)
                for wid in range(nworkers)]
     for p in workers:
         p.wait()
     results = sorted(results)
     header = head(csv_file, 1)
     fobj = None
+
     for d in results:
         for f in sorted(list(os.listdir(d))):
             fp = os.path.join(out_dir, f)
@@ -461,7 +465,10 @@ def parallel_fix_date(csv_file, out_file=None, nworkers=4, progress: ValueProxy=
     parts = sub_ranges(csv_file, nworkers=nworkers)
     pool = mp.Pool(processes=nworkers)
     for wid in range(nworkers):
-        os.makedirs(os.path.join(out_dir, "wid%d" % wid))
+        p = os.path.join(out_dir, "wid%d" % wid)
+        if os.path.exists(p):
+            shutil.rmtree(p)
+        os.makedirs(p)
 
     basenames = [os.path.join(out_dir, "wid%d" % wid, basename) for wid in range(nworkers)]
     results = []
@@ -471,7 +478,7 @@ def parallel_fix_date(csv_file, out_file=None, nworkers=4, progress: ValueProxy=
 
     workers = [pool.apply_async(fix_date,
                                 args=(
-                                    csv_file, basenames[wid], parts[wid], False, wid, False,
+                                    csv_file, basenames[wid], parts[wid], False, wid, True,
                                     progress), callback=track_result)
                for wid in range(nworkers)]
     for p in workers:
